@@ -1,36 +1,27 @@
 {
   "name": "memoria-viva",
   "version": "1.0.0",
-  "description": "🧠 Memória Viva — AI Context & Governance Engine. Configura regras, contexto, skills e MCP MySQL para agentes de IA em qualquer projeto PHP + MySQL em menos de 60 segundos.",
-  "keywords": ["ai", "governance", "mcp", "mysql", "cursor", "claude", "opencode", "gemini", "context", "memory", "php"],
-  "author": "Odeilson Santos",
-  "license": "MIT",
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/yuslen/memoria-viva.git"
-  },
+  "description": "Engine Global de Governança de IA e Memória Incremental de Contexto",
+  "main": "bin/memoria-viva.js",
   "bin": {
-    "memoria-viva": "./cli.js"
+    "memoria-viva": "./bin/memoria-viva.js"
   },
   "scripts": {
-    "test": "node cli.js --dry-run",
-    "init": "node cli.js init",
-    "sync": "node cli.js sync",
-    "status": "node cli.js status",
-    "configure": "node cli.js configure",
-    "update": "node cli.js update"
+    "install:win": "powershell -ExecutionPolicy Bypass -File ./scripts/install-windows.ps1",
+    "install:linux": "bash ./scripts/install-linux.sh",
+    "test": "node bin/memoria-viva.js --dry-run"
   },
-  "engines": {
-    "node": ">=18"
+  "dependencies": {
+    "chalk": "^4.1.2",
+    "fs-extra": "^11.1.1"
   },
   "preferGlobal": true,
   "os": ["win32", "linux", "darwin"],
   "files": [
-    "cli.js",
+    "bin/",
     "templates/",
-    "install.sh",
-    "install.ps1",
-    "README.md",
-    "LICENSE"
+    "scripts/",
+    "package.json",
+    "README.md"
   ]
 }
