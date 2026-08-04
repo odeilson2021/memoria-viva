@@ -1,7 +1,7 @@
 # 🧠 Memória Viva — AI Context & Governance Engine
 
 > **Memória que sobrevive entre chats.**
-> Instala em qualquer projeto PHP + MySQL em menos de 60 segundos e deixa os agentes de IA
+> Instala em qualquer projeto em menos de 60 segundos e deixa os agentes de IA
 > (Cursor, Claude, Gemini, OpenCode, Windsurf, Antigravity) prontos para trabalhar com
 > contexto completo, regras de negócio e MCP MySQL configurado.
 
@@ -32,6 +32,29 @@ cd /tmp/memoria-viva && node cli.js
 
 ---
 
+## 📦 Como Clonar o Memória Viva no Seu Projeto
+
+Para utilizar o Memória Viva em um projeto existente, clone o repositório dentro do projeto:
+
+```bash
+# Dentro do diretório do seu projeto:
+git clone https://github.com/yuslen/memoria-viva.git memoria-viva
+
+# Ou use npx diretamente (não precisa clonar manualmente):
+npx memoria-viva init
+```
+
+Após clonar, execute o instalador:
+
+```bash
+cd memoria-viva && node cli.js
+```
+
+O instalador detectará automaticamente a raiz do seu projeto (via Git) e copiará
+todos os arquivos de configuração para os locais corretos.
+
+---
+
 ## 🎯 O que o instalador faz
 
 | # | Ação | Detalhe |
@@ -44,6 +67,108 @@ cd /tmp/memoria-viva && node cli.js
 | 6 | **Gera instruções de sync** | `SYNC_INSTRUCTIONS.md` — guia para o agente sincronizar o projeto |
 | 7 | **Inicializa docs** | Templates de contexto para o agente preencher com o projeto real |
 | 8 | **Configura CI/CD** | `.github/workflows/deploy.yml` template genérico |
+
+---
+
+## 🧩 Suporte por Stack
+
+O Memória Viva suporta múltiplas stacks de projeto. Ao executar `npx memoria-viva init`,
+o instalador detecta automaticamente a stack do seu projeto.
+
+### PHP — Slim 4
+
+| Item | Detalhe |
+|------|---------|
+| **Stack detectada** | `php-slim4` |
+| **Estrutura esperada** | `app/`, `config/`, `routes/`, `database/`, `public/` |
+| **ORM/Migrations** | Doctrine ORM + Migrations |
+| **Padrão de controllers** | Single Action Controllers (Invokable Classes) |
+| **Injeção de dependência** | PHP-DI Container |
+| **Banco de dados** | MySQL / MariaDB (`utf8mb4_unicode_ci`) |
+| **Testes** | PHPUnit |
+| **Análise estática** | PHPStan |
+| **CI/CD** | `.github/workflows/deploy.yml` — deploy via SSH rsync |
+
+**Como usar em um projeto Slim 4 existente:**
+```bash
+cd /caminho/para/seu/projeto-slim4
+npx memoria-viva init
+```
+
+Após a instalação, o agente de IA terá contexto completo sobre:
+- Rotas em `routes/web/` e `routes/api/v1/`
+- Controllers como Single Action Controllers
+- Repositories em `app/Infrastructure/Persistence/`
+- Tabelas do banco via MCP MySQL
+
+---
+
+### PHP — Laravel
+
+| Item | Detalhe |
+|------|---------|
+| **Stack detectada** | `php-laravel` |
+| **Estrutura esperada** | `app/`, `config/`, `routes/`, `database/`, `resources/` |
+| **ORM/Migrations** | Eloquent ORM + Laravel Migrations |
+| **Padrão de controllers** | Controller classes com métodos resource |
+| **Injeção de dependência** | Laravel Service Container |
+| **Banco de dados** | MySQL / PostgreSQL / SQLite |
+| **Testes** | PHPUnit / Pest |
+| **CI/CD** | `.github/workflows/deploy.yml` — adaptável para Laravel Forge, Vapor, etc. |
+
+**Como usar em um projeto Laravel existente:**
+```bash
+cd /caminho/para/seu/projeto-laravel
+npx memoria-viva init
+```
+
+Após a instalação, o agente de IA terá contexto sobre:
+- Rotas resource e rotas API
+- Models Eloquent e Migrations
+- Service Providers e Dependency Injection
+- Tabelas do banco via MCP MySQL
+
+---
+
+### Node.js
+
+| Item | Detalhe |
+|------|---------|
+| **Stack detectada** | `node` |
+| **Estrutura esperada** | `src/`, `config/`, `routes/`, `models/`, `tests/` |
+| **ORM** | Prisma / TypeORM / Sequelize |
+| **Padrão de controllers** | Express / Fastify handlers |
+| **Banco de dados** | MySQL / PostgreSQL / SQLite |
+| **Testes** | Jest / Vitest / Mocha |
+| **CI/CD** | `.github/workflows/deploy.yml` — adaptável para Node.js deployments |
+
+**Como usar em um projeto Node.js existente:**
+```bash
+cd /caminho/para/seu/projeto-node
+npx memoria-viva init
+```
+
+---
+
+### Outras Stacks
+
+O Memória Viva também funciona com outras stacks. Ao executar o instalador,
+ele detectará automaticamente a stack com base nos arquivos do projeto:
+
+| Stack | Como detectada | Arquivo-chave |
+|-------|---------------|---------------|
+| PHP genérico | `composer.json` presente | `composer.json` |
+| Python | `requirements.txt` ou `pyproject.toml` | `requirements.txt` |
+| Ruby | `Gemfile` presente | `Gemfile` |
+| Go | `go.mod` presente | `go.mod` |
+| .NET | `.csproj` presente | `*.csproj` |
+
+Se a stack não for detectada automaticamente, você pode especificá-la manualmente:
+```bash
+npx memoria-viva init --silent
+# Defina a variável de ambiente STACK antes de executar:
+# STACK=php-slim4 npx memoria-viva init --silent
+```
 
 ---
 
@@ -163,9 +288,13 @@ Siga todas as regras em .agent/rules.md."
 
 ## 📋 Requisitos
 
-- **Node.js 18+** (para o CLI e o MCP MySQL)
-- **Git** (para detectar a raiz do projeto)
-- **PHP 8.2+** e **MySQL** (para projetos PHP)
+| Requisito | Para quê |
+|-----------|----------|
+| **Node.js 18+** | CLI e MCP MySQL |
+| **Git** | Detectar a raiz do projeto |
+| **PHP 8.2+** e **MySQL** | Projetos PHP |
+| **Python 3+** | Projetos Python (opcional) |
+| **Go 1.21+** | Projetos Go (opcional) |
 
 ---
 
@@ -182,6 +311,95 @@ Siga todas as regras em .agent/rules.md."
 | Silencioso (CI/automação) | `npx memoria-viva init --silent` |
 | Dry run (simular) | `npx memoria-viva init --dry-run` |
 | Via env vars | `PROJECT_NAME="X" DB_HOST="Y" npx memoria-viva init --silent` |
+
+---
+
+## 🔌 MCP MySQL
+
+O Memória Viva inclui um servidor MCP MySQL que permite aos agentes de IA
+consultar o banco de dados diretamente:
+
+| Ferramenta | Descrição |
+|------------|-----------|
+| `list_tables` | Lista todas as tabelas do banco |
+| `read_table_schema` | Lê o schema de uma tabela |
+| `run_select_query` | Executa queries SELECT |
+| `get_database_summary` | Resumo do banco de dados |
+| `search_schema` | Busca em schemas |
+| `analyze_query` | Analisa queries |
+
+---
+
+## 📖 Documentação do Projeto
+
+Após a instalação e sincronização, o Memória Viva mantém os seguintes arquivos de contexto:
+
+| Arquivo | Descrição |
+|---------|-----------|
+| `docs/ai/CONTEXTO_ATUAL.md` | Cérebro técnico do projeto — stack, tabelas, rotas, arquitetura |
+| `docs/ai/MODULOS_E_REGRAS.md` | Regras de negócio por módulo |
+| `docs/ai/HANDOFF_ATUAL.md` | Diário de bordo entre agentes — registro incremental de sessões |
+
+---
+
+## 🛡️ Regras e Guardrails
+
+O Memória Viva inclui regras invioláveis para agentes de IA:
+
+- **`.agent/rules.md`** — Regras gerais para qualquer agente de IA
+- **`AGENTS.md`** — Diretrizes para Claude Code e Antigravity
+- **`.cursorrules`** — Regras específicas para o Cursor
+
+---
+
+## 🔄 CI/CD — Deploy em Produção
+
+O Memória Viva inclui um template genérico de GitHub Actions para deploy em produção:
+
+```yaml
+# .github/workflows/deploy.yml
+# Template configurado para NÃO fazer deploy automático
+# Use `npx memoria-viva configure` para gerar o workflow
+```
+
+O workflow inclui:
+- CI (lint + análise estática + testes)
+- Deploy SSH via rsync
+- Migrations do banco de dados
+- Health check pós-deploy
+- Rollback automático em falha
+
+---
+
+## 📦 Estrutura do Repositório Memória Viva
+
+```
+memoria-viva/
+├── cli.js                        ← CLI principal com todos os comandos
+├── package.json                  ← Configuração do pacote npm
+├── install.sh                    ← Instalador Linux / Mac / WSL
+├── install.ps1                   ← Instalador Windows PowerShell
+├── README.md                     ← Esta documentação
+├── LICENSE                       ← Licença MIT
+├── templates/                    ← Templates instalados nos projetos
+│   ├── .agent/rules.md
+│   ├── AGENTS.md
+│   ├── .cursorrules
+│   ├── .github/workflows/deploy.yml  ← Template CI/CD genérico
+│   ├── config/mcp_config.json
+│   ├── docs/ai/
+│   │   ├── CONTEXTO_ATUAL.md
+│   │   ├── MODULOS_E_REGRAS.md
+│   │   └── HANDOFF_ATUAL.md
+│   ├── env.mcp.example
+│   ├── skills/
+│   │   ├── database-sync.md
+│   │   └── route-sanitizer.md
+│   ├── SYNC_INSTRUCTIONS.md     ← Instruções de sincronização
+│   └── tools/mcp-mysql.js
+└── .github/workflows/
+    └── deploy.yml                ← Workflow de deploy do próprio projeto
+```
 
 ---
 
