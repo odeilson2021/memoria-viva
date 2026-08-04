@@ -1,0 +1,26 @@
+{
+  "name": "memoria-viva",
+  "version": "1.0.0",
+  "description": "🧠 Memória Viva — AI Context & Governance Engine. Configura regras, contexto, skills e MCP MySQL para agentes de IA em qualquer projeto PHP + MySQL em menos de 60 segundos.",
+  "keywords": ["ai", "governance", "mcp", "mysql", "cursor", "claude", "opencode", "gemini", "context", "memory", "php"],
+  "author": "Odeilson Santos",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/yuslen/memoria-viva.git"
+  },
+  "bin": {
+    "memoria-viva": "./cli.js"
+  },
+  "scripts": {
+    "test": "node cli.js --dry-run",
+    "init": "node cli.js init",
+    "sync": "node cli.js sync",
+    "status": "node cli.js status",
+    "configure": "node cli.js configure",
+    "update": "node cli.js update"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

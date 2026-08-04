@@ -1,0 +1,23 @@
+# Dependências
+node_modules/
+
+# Arquivos de ambiente com credenciais
+.env
+.env.mcp
+.env.local
+
+# IDEs e editores
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Logs
+*.log
+npm-debug.log*
