@@ -7,7 +7,64 @@
 
 ---
 
-## ⚡ Instalação Rápida
+## 🌐 Instalação Global (Recomendado para Agentes)
+
+Instale o Memória Viva globalmente no sistema para que ele esteja disponível em todos os projetos e IDEs:
+
+### Opção 1 — npm global (Qualquer plataforma)
+```bash
+npm install -g memoria-viva
+```
+
+### Opção 2 — curl (Linux / Mac / WSL)
+```bash
+curl -fsSL https://raw.githubusercontent.com/yuslen/memoria-viva/main/install.sh --global | bash
+```
+
+### Opção 3 — PowerShell (Windows)
+```powershell
+irm https://raw.githubusercontent.com/yuslen/memoria-viva/main/install.ps1 -Global | iex
+```
+
+### Verificando a instalação global
+```bash
+memoria-viva --help
+```
+
+### Como funciona a instalação global
+
+Quando instalado globalmente, o Memória Viva:
+1. Cria um diretório de configuração global:
+   - **Windows:** `%APPDATA%/memoria-viva/`
+   - **Linux/Mac:** `~/.memoria-viva/`
+2. Armazena todos os templates e configurações nesse diretório
+3. Permite que qualquer agente de IA o utilize de qualquer projeto
+4. Funciona com qualquer IDE (Cursor, Claude, Gemini, OpenCode, Windsurf, Antigravity)
+
+### Usando o Memória Viva em qualquer projeto
+
+Após a instalação global, basta navegar até qualquer projeto e executar:
+
+```bash
+cd /caminho/para/seu/projeto
+npx memoria-viva init
+```
+
+Ou, se o projeto já tiver o Memória Viva instalado localmente:
+
+```bash
+npx memoria-viva sync
+```
+
+O Memória Viva detectará automaticamente:
+- A raiz do projeto (via Git)
+- A stack do projeto (PHP Slim 4, Laravel, Node.js, etc.)
+- A estrutura de pastas existente
+- Os arquivos de configuração já instalados
+
+---
+
+## ⚡ Instalação Rápida (Local)
 
 ### Opção 1 — npx (Qualquer plataforma)
 ```bash

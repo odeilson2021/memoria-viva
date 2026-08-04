@@ -48,14 +48,52 @@ O comando `npx memoria-viva sync` executa os seguintes passos automaticamente:
 
 ### 5. 📂 Organização da Estrutura do Projeto
 - Garante que a estrutura de diretórios siga o padrão Memória Viva:
-  ```
-  .agent/
-  docs/ai/
-  skills/
-  tools/
-  config/
-  .github/workflows/
-  ```
+
+```
+projeto/
+├── .agent/
+│   └── rules.md               ← Guardrails invioláveis da IA
+├── app/
+│   ├── Actions/               ← Single Action Controllers (Invokable)
+│   │   ├── Admin/             ← Módulo Admin Master
+│   │   ├── Store/             ← Módulo Lojista
+│   │   ├── Driver/            ← Módulo Entregador
+│   │   └── Client/            ← Módulo Cliente / Marketplace
+│   ├── Domain/                ← Entidades de Negócio
+│   └── Infrastructure/
+│       ├── Persistence/       ← Repositories (Slim + Doctrine)
+│       └── Middleware/        ← SessionValidation, Permissions, ErrorHandler
+├── database/
+│   └── migrations/            ← Migrações oficiais do banco
+├── docs/
+│   └── ai/
+│       ├── CONTEXTO_ATUAL.md  ← Cérebro técnico do projeto
+│       ├── MODULOS_E_REGRAS.md ← Regras de negócio por módulo
+│       └── HANDOFF_ATUAL.md   ← Diário de bordo entre agentes
+├── routes/
+│   ├── index.php              ← Entrypoint mestre das rotas
+│   ├── web/                   ← Rotas WEB (admin.php, store.php, client.php, site.php)
+│   └── api/v1/                ← APIs RESTful (auth.php, stores.php, orders.php, drivers.php)
+├── skills/
+│   ├── database-sync.md       ← Skill: Inspeção e Migrations via MCP
+│   └── route-sanitizer.md     ← Skill: Diagnóstico de 404/500
+├── tools/
+│   └── mcp-mysql.js           ← Runner seguro do servidor MCP MySQL
+├── config/
+│   └── mcp_config.json        ← Template de conexão MCP
+├── .github/workflows/
+│   └── deploy.yml             ← CI/CD template genérico
+├── .env.mcp                   ← Credenciais MySQL (NÃO versionado)
+├── .env.mcp.example           ← Template de credenciais
+├── .mcp.json                  ← Config MCP para Claude Code
+├── .cursor/mcp.json           ← Config MCP para Cursor
+├── .vscode/mcp.json           ← Config MCP para VS Code
+├── opencode.json              ← Config MCP para OpenCode
+├── AGENTS.md                  ← Regras para Claude Code / Antigravity
+├── .cursorrules               ← Regras para Cursor
+└── SYNC_INSTRUCTIONS.md       ← Instruções de sincronização para o agente
+```
+
 - Cria diretórios faltantes se necessário
 - Verifica que todos os arquivos de configuração MCP estão presentes
 

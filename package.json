@@ -22,5 +22,15 @@
   },
   "engines": {
     "node": ">=18"
-  }
+  },
+  "preferGlobal": true,
+  "os": ["win32", "linux", "darwin"],
+  "files": [
+    "cli.js",
+    "templates/",
+    "install.sh",
+    "install.ps1",
+    "README.md",
+    "LICENSE"
+  ]
 }

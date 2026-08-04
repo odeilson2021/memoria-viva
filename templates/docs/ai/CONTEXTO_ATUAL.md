@@ -26,19 +26,30 @@
 ## 📁 Estrutura de Pastas
 
 ```
-app/
-├── Application/
-│   ├── Actions/          ← Single Action Controllers (Invokable)
-│   └── Middleware/       ← Middlewares de autenticação e validação
-├── Domain/
-│   ├── Entity/           ← Entidades do domínio
-│   └── Repository/       ← Interfaces dos repositórios
-└── Infrastructure/
-    └── Persistence/      ← Implementações concretas (MySQL)
-config/                   ← Container DI, middleware, settings
-routes/                   ← Rotas por módulo
-database/
-└── migrations/           ← Migrations versionadas
+projeto/
+├── .agent/
+│   └── rules.md               ← Guardrails invioláveis da IA
+├── app/
+│   ├── Actions/               ← Single Action Controllers (Invokable)
+│   │   ├── Admin/             ← Módulo Admin Master
+│   │   ├── Store/             ← Módulo Lojista
+│   │   ├── Driver/            ← Módulo Entregador
+│   │   └── Client/            ← Módulo Cliente / Marketplace
+│   ├── Domain/                ← Entidades de Negócio
+│   └── Infrastructure/
+│       ├── Persistence/       ← Repositories (Slim + Doctrine)
+│       └── Middleware/        ← SessionValidation, Permissions, ErrorHandler
+├── database/
+│   └── migrations/            ← Migrações oficiais do banco
+├── docs/
+│   └── ai/
+│       ├── CONTEXTO_ATUAL.md  ← Cérebro técnico do projeto
+│       ├── MODULOS_E_REGRAS.md ← Regras de negócio por módulo
+│       └── HANDOFF_ATUAL.md   ← Diário de bordo entre agentes
+└── routes/
+    ├── index.php              ← Entrypoint mestre das rotas
+    ├── web/                   ← Rotas WEB (admin.php, store.php, client.php, site.php)
+    └── api/v1/                ← APIs RESTful (auth.php, stores.php, orders.php, drivers.php)
 ```
 
 > ⚠️ **Agente: Atualize com a estrutura de pastas real do projeto.**

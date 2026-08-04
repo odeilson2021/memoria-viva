@@ -1,60 +1,116 @@
-﻿# ðŸ§­ AGENT INITIATION & CONTEXT POINTER â€” QTALDELIVERY
+﻿# 🧠 AGENTS.md — Memória Viva — Regras e Diretrizes para Agentes de IA
 
-> âš ï¸ **LEITURA OBRIGATÃ“RIA:** Qualquer Agente de IA (Gemini, Claude, OpenCode, Cursor, Antigrav, etc.) ou Desenvolvedor DEVE ler estritamente os arquivos de contexto antes de gerar ou alterar qualquer linha de cÃ³digo.
-
----
-
-## ðŸ›ï¸ A Nova Arquitetura de DocumentaÃ§Ã£o (Apenas 4 Arquivos)
-
-1. ðŸ“„ **Manual de Contexto Mestre:** [docs/ai/CONTEXTO_ATUAL.md](file:///docs/ai/CONTEXTO_ATUAL.md) â€” O "cÃ©rebro" do projeto (stack, arquitetura, mapeamento das tabelas, rotas e sessÃµes).
-2. ðŸ“„ **Regras e Guardrails InviolÃ¡veis:** [AGENTS.md](file:///AGENTS.md) e [.agent/RULES/](file:///.agent/RULES/) â€” O "cÃ³digo de conduta". Regras rÃ­gidas do que PODE e NÃƒO PODE ser feito.
-3. ðŸ“„ **Manual Operacional dos 4 MÃ³dulos:** [docs/ai/MODULOS_E_REGRAS.md](file:///docs/ai/MODULOS_E_REGRAS.md) â€” EspecificaÃ§Ãµes de negÃ³cio do Admin Master, Lojista, Entregador e Cliente/Marketplace.
-4. ðŸ“„ **Checklist de Handoff e EvoluÃ§Ã£o:** [docs/ai/HANDOFF_ATUAL.md](file:///docs/ai/HANDOFF_ATUAL.md) â€” Arquivo vivo com o status de cada tarefa, pendÃªncias e checklist obrigatoriamente atualizado a cada refatoraÃ§Ã£o.
+> **LEITURA OBRIGATÓRIA:** Qualquer Agente de IA (Gemini, Claude, OpenCode, Cursor, Antigravity, etc.) ou Desenvolvedor DEVE ler estritamente os arquivos de contexto antes de gerar ou alterar qualquer linha de código.
 
 ---
 
-## ðŸ›¡ï¸ DIRETRIZES E REGRAS INVIOLÃVEIS DO PROJETO
+## 📐 Arquitetura de Documentação (Apenas 4 Arquivos)
 
-### ðŸš« 1. PROIBIÃ‡Ã•ES ABSOLUTAS (O QUE NUNCA FAZER)
-1. **PROIBIDO CÃ“DIGO LEGADO OU SQL SOLTO:** Nunca use PDO cru, `$pdo->prepare()`, `query()` ou rotas fora do Slim 4. Toda consulta DEVE passar pelos Repositories em `app/Infrastructure/Persistence/`.
-2. **PROIBIDO APAGAR OU QUEBRAR MÃ“DULOS EXISTENTES:** Ã‰ proibido remover funcionalidades, rotas ou tabelas ativas sem ordem explÃ­cita do usuÃ¡rio. Se uma alteraÃ§Ã£o quebrar logins (Admin, Lojista, Entregador ou Cliente), o cÃ³digo deve ser revertido e corrigido imediatamente.
-3. **PROIBIDO CRIAR TABELAS REPETIDAS:** O banco de dados foi padronizado em tabelas canÃ´nicas. Ã‰ estritamente proibido recriar tabelas legadas (ex: `motoboys`, `entregadores_loja`, `config`, `city_*`).
-4. **PROIBIDO FINALIZAR UMA TAREFA SEM ATUALIZAR A DOCUMENTAÃ‡ÃƒO:** NENHUMA refatoraÃ§Ã£o, correÃ§Ã£o de bug ou nova funcionalidade Ã© considerada concluÃ­da se a documentaÃ§Ã£o (`docs/ai/CONTEXTO_ATUAL.md` e `docs/ai/HANDOFF_ATUAL.md`) nÃ£o for atualizada no mesmo commit.
+1. 🧠 **Manual de Contexto Mestre:** `docs/ai/CONTEXTO_ATUAL.md` — O "cérebro" do projeto (stack, arquitetura, mapeamento das tabelas, rotas e sessões).
+2. 🛡️ **Regras e Guardrails Invioláveis:** `AGENTS.md` e `.agent/rules.md` — O "código de conduta". Regras rígidas do que PODE e NÃO PODE ser feito.
+3. 📖 **Manual Operacional dos Módulos:** `docs/ai/MODULOS_E_REGRAS.md` — Especificações de negócio por módulo.
+4. 📋 **Checklist de Handoff e Evolução:** `docs/ai/HANDOFF_ATUAL.md` — Arquivo vivo com o status de cada tarefa, pendências e checklist obrigatoriamente atualizado a cada refatoração.
 
-### âœ… 2. PADRÃ•ES OBRIGATÃ“RIOS DO SISTEMA
+---
+
+## 📂 Padrão de Estrutura de Pastas
+
+Todo projeto que utiliza o Memória Viva deve seguir esta estrutura de diretórios:
+
+```
+projeto/
+├── .agent/
+│   └── rules.md               ← Guardrails invioláveis da IA
+├── app/
+│   ├── Actions/               ← Single Action Controllers (Invokable)
+│   │   ├── Admin/             ← Módulo Admin Master
+│   │   ├── Store/             ← Módulo Lojista
+│   │   ├── Driver/            ← Módulo Entregador
+│   │   └── Client/            ← Módulo Cliente / Marketplace
+│   ├── Domain/                ← Entidades de Negócio
+│   └── Infrastructure/
+│       ├── Persistence/       ← Repositories (Slim + Doctrine)
+│       └── Middleware/        ← SessionValidation, Permissions, ErrorHandler
+├── database/
+│   └── migrations/            ← Migrações oficiais do banco
+├── docs/
+│   └── ai/
+│       ├── CONTEXTO_ATUAL.md  ← Cérebro técnico do projeto
+│       ├── MODULOS_E_REGRAS.md ← Regras de negócio por módulo
+│       └── HANDOFF_ATUAL.md   ← Diário de bordo entre agentes
+└── routes/
+    ├── index.php              ← Entrypoint mestre das rotas
+    ├── web/                   ← Rotas WEB (admin.php, store.php, client.php, site.php)
+    └── api/v1/                ← APIs RESTful (auth.php, stores.php, orders.php, drivers.php)
+```
+
+> ⚠️ **Agente: Siga esta estrutura de pastas ao criar novos arquivos ou módulos.**
+
+---
+
+## 🛤️ Roteamento
+
+Módulos isolados em `routes/web/` (`admin.php`, `store.php`, `client.php`, `site.php`) e APIs versionadas em `routes/api/v1/`.
+
+---
+
+## 🔐 Sistema de Sessões (`auth_sessions`)
+
+| Módulo | Validade | Renovação |
+|--------|---------|-----------|
+| Admin / Master | **24 horas** | Sem renovação automática |
+| Operacional / Lojista / App / Cliente | **7 dias** | Idle Refresh automático |
+
+> As sessões são persistidas no banco de dados na tabela `auth_sessions`.
+> Isso garante que logins sobrevivam a reinícios de servidor e deploys via Git.
+
+---
+
+## 🚫 1. PROIBIÇÕES ABSOLUTAS (O QUE NUNCA FAZER)
+
+1. **PROIBIDO CÓDIGO LEGADO OU SQL SOLTO:** Nunca use PDO cru, `$pdo->prepare()`, `query()` ou rotas fora do Slim 4. Toda consulta DEVE passar pelos Repositories em `app/Infrastructure/Persistence/`.
+2. **PROIBIDO APAGAR OU QUEBRAR MÓDULOS EXISTENTES:** É proibido remover funcionalidades, rotas ou tabelas ativas sem ordem explícita do usuário. Se uma alteração quebrar logins (Admin, Lojista, Entregador ou Cliente), o código deve ser revertido e corrigido imediatamente.
+3. **PROIBIDO CRIAR TABELAS REPETIDAS:** O banco de dados foi padronizado em tabelas canônicas. É estritamente proibido recriar tabelas legadas (ex: `motoboys`, `entregadores_loja`, `config`, `city_*`).
+4. **PROIBIDO FINALIZAR UMA TAREFA SEM ATUALIZAR A DOCUMENTAÇÃO:** NENHUMA refatoração, correção de bug ou nova funcionalidade é considerada concluída se a documentação (`docs/ai/CONTEXTO_ATUAL.md` e `docs/ai/HANDOFF_ATUAL.md`) não for atualizada no mesmo commit.
+
+---
+
+## ✅ 2. PADRÕES OBRIGATÓRIOS DO SISTEMA
+
 - **Stack:** PHP 8.2 Strict Types + Slim Framework 4 + Doctrine ORM/Migrations + MySQL (utf8mb4) + Monolog + WhatsApp Evolution API + MP Split.
-- **Arquitetura:** Single Action Controllers (Invokable Classes) + Repository Pattern + InjeÃ§Ã£o de DependÃªncia via PHP-DI Container.
-- **Roteamento:** MÃ³dulos isolados em `routes/web/` (`admin.php`, `store.php`, `client.php`, `site.php`) e APIs versionadas em `routes/api/v1/`.
-- **SessÃµes e Validade:**
-  * Admin Master (`/admin`): **24 Horas** de validade (sem renovaÃ§Ã£o automÃ¡tica).
-  * Lojista (`/store`), Entregador (`/driver`), Cliente (`/client`): **7 Dias** de validade com Idle Refresh no MySQL (`auth_sessions`).
-- **Nomenclatura do Banco:** Tabelas em `snake_case` no inglÃªs e no plural (ex: `stores`, `orders`, `drivers`, `business_settings`).
-- **Servidor MCP MySQL:** Para consultar o schema ou dados do banco durante o desenvolvimento, utilize sempre as ferramentas do MCP MySQL (`list_tables`, `read_table_schema`, `run_select_query`). Veja [docs/mcp/mysql.md](file:///docs/mcp/mysql.md).
+- **Arquitetura:** Single Action Controllers (Invokable Classes) + Repository Pattern + Injeção de Dependência via PHP-DI Container.
+- **Nomenclatura do Banco:** Tabelas em `snake_case` no inglês e no plural (ex: `stores`, `orders`, `drivers`, `business_settings`).
+- **Servidor MCP MySQL:** Para consultar o schema ou dados do banco durante o desenvolvimento, utilize sempre as ferramentas do MCP MySQL (`list_tables`, `read_table_schema`, `run_select_query`).
 
-### ðŸ”„ 3. PROTOCOLO DE ATUALIZAÃ‡ÃƒO E COMMIT OBRIGATÃ“RIO
-Sempre que concluir uma alteraÃ§Ã£o no cÃ³digo, execute na ordem:
+---
+
+## 🔄 3. PROTOCOLO DE ATUALIZAÇÃO E COMMIT OBRIGATÓRIO
+
+Sempre que concluir uma alteração no código, execute na ordem:
+
 1. `git status && git branch --show-current`
 2. `find app config routes -name '*.php' -print0 | xargs -0 -n1 php -l` (sintaxe PHP)
-3. `composer analyse` (anÃ¡lise estÃ¡tica PHPStan)
+3. `composer analyse` (análise estática PHPStan)
 4. `vendor/bin/phpunit` (todos os testes DEVEM passar)
-5. Atualizar `docs/ai/CONTEXTO_ATUAL.md` (se houve mudanÃ§a de rota ou banco) e `docs/ai/HANDOFF_ATUAL.md`.
-6. `git add <arquivos>` â†’ `git commit -m "[tipo]: mensagem clara e objetiva"`
-7. `git push origin main` â†’ dispara CI/CD automÃ¡tico em produÃ§Ã£o.
+5. Atualizar `docs/ai/CONTEXTO_ATUAL.md` (se houve mudança de rota ou banco) e `docs/ai/HANDOFF_ATUAL.md`.
+6. `git add <arquivos>` → `git commit -m "[tipo]: mensagem clara e objetiva"`
+7. `git push origin main` → dispara CI/CD automático em produção.
 
-**PadrÃ£o de mensagem de commit:**
-- `feat:` nova funcionalidade | `fix:` correÃ§Ã£o de bug | `docs:` documentaÃ§Ã£o
-- `refactor:` refatoraÃ§Ã£o | `test:` testes | `chore:` manutenÃ§Ã£o
-- âœ… `"fix: corrige calculo de frete no checkout modo bairro"`
-- â›” `"fix"`, `"ajustes"`, `"update"`, `"teste"` sÃ£o **proibidos**
+**Padrão de mensagem de commit:**
+- `feat:` nova funcionalidade | `fix:` correção de bug | `docs:` documentação
+- `refactor:` refatoração | `test:` testes | `chore:` manutenção
+- ✅ `"fix: corrige calculo de frete no checkout modo bairro"`
+- ⛔ `"fix"`, `"ajustes"`, `"update"`, `"teste"` são **proibidos**
 
-> O `git push` na `main` dispara `.github/workflows/deploy.yml` automaticamente:
-> CI (lint + PHPStan + PHPUnit) â†’ deploy SSH rsync â†’ Doctrine Migrations â†’ health check â†’ rollback automÃ¡tico em falha.
+---
 
-### ðŸ§  4. REGRA FUNDAMENTAL DE TRANSIÃ‡ÃƒO E CONTINUIDADE ENTRE AGENTES
-> ðŸ’¡ **TODO DOCUMENTO DE CONTEXTO Ã‰ A MEMÃ“RIA VIVA COMPARTILHADA DOS AGENTES DE IA.**
-1. **SEMPRE ATUALIZE O CONTEXTO ANTES DE ENCERRAR UMA SESSÃƒO:** Ao concluir qualquer tarefa, refatoraÃ§Ã£o, criaÃ§Ã£o de arquivo ou correÃ§Ã£o de bug, o Agente de IA Ã© OBRIGADO a atualizar a documentaÃ§Ã£o ([docs/ai/CONTEXTO_ATUAL.md](file:///docs/ai/CONTEXTO_ATUAL.md) e [docs/ai/HANDOFF_ATUAL.md](file:///docs/ai/HANDOFF_ATUAL.md)).
-2. **REGISTRO DE REFERÃŠNCIAS CLARAS PARA O PRÃ“XIMO AGENTE:** O registro deve conter:
-   - Exatamente o que foi feito (arquivos modificados, funÃ§Ãµes/mÃ©todos criados ou alterados e repositÃ³rios afetados).
-   - O motivo tÃ©cnico e a lÃ³gica de negÃ³cio adotada.
-   - InstruÃ§Ãµes e alertas especÃ­ficos sobre quais comportamentos, APIs ou contratos NÃƒO PODEM ser alterados ou removidos.
-3. **NUNCA DESTRUIR, APENAS IMPLEMENTAR OU MELHORAR:** Quando um novo agente iniciar uma sessÃ£o em um novo chat, ele lerÃ¡ os arquivos de contexto e entenderÃ¡ perfeitamente o estado atual do sistema, impedindo que apague, refatore sem necessidade ou quebre funcionalidades previamente construÃ­das.
+## 🔄 4. REGRA FUNDAMENTAL DE TRANSIÇÃO E CONTINUIDADE ENTRE AGENTES
+
+> **TODO DOCUMENTO DE CONTEXTO É A MEMÓRIA VIVA COMPARTILHADA DOS AGENTES DE IA.**
+
+1. **SEMPRE ATUALIZE O CONTEXTO ANTES DE ENCERRAR UMA SESSÃO:** Ao concluir qualquer tarefa, refatoração, criação de arquivo ou correção de bug, o Agente de IA é OBRIGADO a atualizar a documentação (`docs/ai/CONTEXTO_ATUAL.md` e `docs/ai/HANDOFF_ATUAL.md`).
+2. **REGISTRO DE REFERÊNCIAS CLARAS PARA O PRÓXIMO AGENTE:** O registro deve conter:
+   - Exatamente o que foi feito (arquivos modificados, funções/métodos criados ou alterados e repositórios afetados).
+   - O motivo técnico e a lógica de negócio adotada.
+   - Instruções e alertas específicos sobre quais comportamentos, APIs ou contratos NÃO PODEM ser alterados ou removidos.
+3. **NUNCA DESTRUIR, APENAS IMPLEMENTAR OU MELHORAR:** Quando um novo agente iniciar uma sessão em um novo chat, ele lerá os arquivos de contexto e entenderá perfeitamente o estado atual do sistema, impedindo que apague, refatore sem necessidade ou quebre funcionalidades previamente construídas.

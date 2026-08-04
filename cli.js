@@ -104,13 +104,72 @@ function readFile(filePath) {
     return fs.readFileSync(filePath, 'utf8');
 }
 
+// ── Global Config ────────────────────────────────────────────
+function getGlobalConfigDir() {
+    const os = process.platform;
+    if (os === 'win32') {
+        return path.join(process.env.APPDATA || 'C:\\Users\\Default\\AppData\\Roaming', 'memoria-viva');
+    }
+    if (os === 'darwin') {
+        return path.join(process.env.HOME || '/Users/Shared', '.memoria-viva');
+    }
+    return path.join(process.env.HOME || '/tmp', '.memoria-viva');
+}
+
+function isGlobalInstall() {
+    try {
+        const pkgPath = path.resolve(__dirname, '..', 'package.json');
+        const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf8'));
+        return !!pkg.preferGlobal;
+    } catch {
+        return false;
+    }
+}
+
+function getTemplatesDir() {
+    const globalDir = getGlobalConfigDir();
+    const globalTemplates = path.join(globalDir, 'templates');
+    if (fs.existsSync(globalTemplates)) {
+        return globalTemplates;
+    }
+    return path.join(kitRoot, 'templates');
+}
+
+function ensureGlobalTemplates() {
+    const globalDir = getGlobalConfigDir();
+    const globalTemplates = path.join(globalDir, 'templates');
+    if (!fs.existsSync(globalTemplates)) {
+        fs.mkdirSync(globalTemplates, { recursive: true });
+        const srcTemplates = path.join(kitRoot, 'templates');
+        if (fs.existsSync(srcTemplates)) {
+            copyDirSync(srcTemplates, globalTemplates);
+        }
+    }
+}
+
+function copyDirSync(src, dst) {
+    if (!fs.existsSync(dst)) {
+        fs.mkdirSync(dst, { recursive: true });
+    }
+    const entries = fs.readdirSync(src, { withFileTypes: true });
+    for (const entry of entries) {
+        const srcPath = path.join(src, entry.name);
+        const dstPath = path.join(dst, entry.name);
+        if (entry.isDirectory()) {
+            copyDirSync(srcPath, dstPath);
+        } else {
+            fs.copyFileSync(srcPath, dstPath);
+        }
+    }
+}
+
 // ── Variáveis globais ──────────────────────────────────────────────────
 let projectRoot = '';
 let projectName = '';
 let stack       = '';
 const installDate = new Date().toISOString().slice(0, 10);
 const kitRoot     = path.resolve(__dirname);
-const templates   = path.join(kitRoot, 'templates');
+const templates   = isGlobal ? getTemplatesDir() : path.join(kitRoot, 'templates');
 
 // ── Comandos ───────────────────────────────────────────────────────────
 
@@ -154,6 +213,12 @@ async function cmdInit() {
 ╚═══════════════════════════════════════════════════════════╝`));
 
     if (isDry) console.log(c.yellow('\n  [DRY RUN] Nenhum arquivo será criado.\n'));
+
+    if (isGlobal) {
+        step('Modo global detectado');
+        ensureGlobalTemplates();
+        ok(`Templates globais em: ${getGlobalConfigDir()}`);
+    }
 
     step('Detectando raiz do projeto...');
     try {

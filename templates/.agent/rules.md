@@ -35,6 +35,41 @@ Como novos chats iniciam sem histórico prévio, o agente É OBRIGADO A:
 
 ---
 
+## 📂 5. PADRÃO DE ESTRUTURA DE PASTAS
+
+Todo projeto que utiliza o Memória Viva deve seguir esta estrutura de diretórios:
+
+```
+projeto/
+├── .agent/
+│   └── rules.md               ← Guardrails invioláveis da IA
+├── app/
+│   ├── Actions/               ← Single Action Controllers (Invokable)
+│   │   ├── Admin/             ← Módulo Admin Master
+│   │   ├── Store/             ← Módulo Lojista
+│   │   ├── Driver/            ← Módulo Entregador
+│   │   └── Client/            ← Módulo Cliente / Marketplace
+│   ├── Domain/                ← Entidades de Negócio
+│   └── Infrastructure/
+│       ├── Persistence/       ← Repositories (Slim + Doctrine)
+│       └── Middleware/        ← SessionValidation, Permissions, ErrorHandler
+├── database/
+│   └── migrations/            ← Migrações oficiais do banco
+├── docs/
+│   └── ai/
+│       ├── CONTEXTO_ATUAL.md  ← Cérebro técnico do projeto
+│       ├── MODULOS_E_REGRAS.md ← Regras de negócio por módulo
+│       └── HANDOFF_ATUAL.md   ← Diário de bordo entre agentes
+└── routes/
+    ├── index.php              ← Entrypoint mestre das rotas
+    ├── web/                   ← Rotas WEB (admin.php, store.php, client.php, site.php)
+    └── api/v1/                ← APIs RESTful (auth.php, stores.php, orders.php, drivers.php)
+```
+
+> ⚠️ **Agente: Siga esta estrutura de pastas ao criar novos arquivos ou módulos.**
+
+---
+
 ## 🚀 4. PROTOCOLO DE COMMIT E DEPLOY (OBRIGATÓRIO)
 
 Sempre que concluir uma alteração no código, execute na ordem:

@@ -22,12 +22,12 @@
 
 > Ao iniciar o primeiro chat após a instalação da Memória Viva:
 
-1. Leia todo o código em `app/`, `config/`, `routes/`, `database/`
+1. Leia todo o código em `app/`, `routes/`, `database/`, `config/`
 2. Atualize `docs/ai/CONTEXTO_ATUAL.md` com:
    - Stack e versões reais
    - Todas as tabelas do banco (use MCP: `list_tables`)
-   - Todas as rotas registradas por módulo
-   - Estrutura de pastas real
+   - Todas as rotas registradas por módulo em `routes/web/` e `routes/api/v1/`
+   - Estrutura de pastas real seguindo o padrão Memória Viva
 3. Atualize `docs/ai/MODULOS_E_REGRAS.md` com as regras de negócio reais
 4. Registre aqui neste arquivo o que foi feito
 5. Siga todas as regras em `.agent/rules.md`
