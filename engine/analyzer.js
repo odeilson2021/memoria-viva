@@ -116,22 +116,30 @@ class ProjectAnalyzer {
                 dna.language = deps['typescript'] ? 'Node.js (TypeScript)' : 'Node.js (JavaScript)';
             }
 
-            if (deps['@nestjs/core']) {
+            if (deps['@adonisjs/core']) {
+                dna.framework = 'Node.js — AdonisJS';
+            } else if (deps['@nestjs/core']) {
                 dna.framework = 'Node.js — NestJS';
+            } else if (deps['next']) {
+                dna.framework = 'Next.js';
             } else if (deps['express']) {
                 dna.framework = 'Node.js — Express';
             } else if (deps['fastify']) {
                 dna.framework = 'Node.js — Fastify';
-            } else if (deps['next']) {
-                dna.framework = 'Next.js';
             } else if (deps['vite'] || deps['react']) {
                 dna.framework = 'React / Vite';
             } else if (deps['vue']) {
                 dna.framework = 'Vue.js';
             }
 
+            // Node.js sem framework reconhecido => padrão AdonisJS (stack full-stack recomendada)
+            if (dna.language.includes('Node') && dna.framework === 'Custom / Pure') {
+                dna.framework = 'Node.js — AdonisJS';
+            }
+
             // ORM
-            if (deps['@prisma/client'] || deps['prisma']) dna.orm = 'Prisma ORM';
+            if (deps['@adonisjs/lucid']) dna.orm = 'Lucid ORM';
+            else if (deps['@prisma/client'] || deps['prisma']) dna.orm = 'Prisma ORM';
             else if (deps['typeorm']) dna.orm = 'TypeORM';
             else if (deps['sequelize']) dna.orm = 'Sequelize';
             else if (deps['mongoose']) dna.orm = 'Mongoose (MongoDB)';
@@ -162,12 +170,12 @@ class ProjectAnalyzer {
     async _analyzeDirectories(dna) {
         const check = async (rel) => await fs.pathExists(path.join(this.root, rel));
 
-        dna.structure.hasRoutes = await check('routes') || await check('src/routes');
-        dna.structure.hasControllers = await check('app/Actions') || await check('app/Http/Controllers') || await check('src/controllers');
+        dna.structure.hasRoutes = await check('routes') || await check('src/routes') || await check('start/routes.ts');
+        dna.structure.hasControllers = await check('app/Actions') || await check('app/Http/Controllers') || await check('app/Controllers') || await check('src/controllers');
         dna.structure.hasModels = await check('app/Domain') || await check('app/Models') || await check('src/models');
         dna.structure.hasRepositories = await check('app/Infrastructure/Persistence') || await check('app/Repositories') || await check('src/repositories');
         dna.structure.hasMigrations = await check('database/migrations') || await check('db/migrations') || await check('prisma/migrations');
-        dna.structure.hasViews = await check('resources/views') || await check('views') || await check('src/views');
+        dna.structure.hasViews = await check('resources/views') || await check('views') || await check('src/views') || await check('inertia');
         dna.structure.hasPublic = await check('public') || await check('static');
     }
 

@@ -6,27 +6,30 @@
 
 ## ⚡ 1. Instalação Global (Passo a Passo Inicial)
 
-Para instalar o Memória Viva de forma global no seu computador, execute os seguintes comandos no terminal:
+> ⚠️ O Memória Viva **não está no registry público do npm**. Não use `npm install -g memoria-viva` (erro 404). Clone o repositório e instale a partir da pasta.
+
+Para instalar o Memória Viva de forma global, execute no terminal:
 
 ```bash
-# 1. Entre no diretório do Memória Viva
-cd c:\Users\dev\Documents\memoria-viva
+# 1. Clone o repositório
+git clone https://github.com/yuslen/memoria-viva.git
+cd memoria-viva
 
 # 2. Instale as dependências do Node.js
 npm install
 
-# 3. Realize a instalação global no sistema operacional:
+# 3. Instalação global no sistema operacional:
 # No Windows (PowerShell):
 npm run install:win
 
 # No Linux / Mac (Bash):
 npm run install:linux
 
-# OU diretamente via npm:
+# OU diretamente via npm (qualquer SO):
 npm install -g .
 ```
 
-Após esse procedimento, o comando `memoria-viva` estará disponível em qualquer terminal do seu computador!
+Após esse procedimento, o comando `memoria-viva` estará disponível em qualquer terminal do seu computador! (Reinicie o terminal/IDE para aplicar o PATH.)
 
 ---
 

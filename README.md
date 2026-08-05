@@ -9,26 +9,46 @@
 
 ## ⚡ Instalação Global
 
-### Opção 1 — npm global (Qualquer plataforma)
-```bash
-npm install -g memoria-viva
-```
+> ⚠️ **O Memória Viva NÃO está publicado no registry público do npm.** O comando `npm install -g memoria-viva` falha com erro 404. Instale sempre a partir do código-fonte clonado do Git (veja abaixo).
 
-### Opção 2 — curl (Linux / Mac / WSL)
-```bash
-curl -fsSL https://raw.githubusercontent.com/yuslen/memoria-viva/main/scripts/install-linux.sh | bash
-```
+### Pré-requisitos
+- Node.js 18+
+- Git
+- (opcional) MySQL/MariaDB para o MCP MySQL
 
-### Opção 3 — PowerShell (Windows)
-```powershell
-irm https://raw.githubusercontent.com/yuslen/memoria-viva/main/scripts/install-windows.ps1 | iex
-```
-
-### Opção 4 — Clone e rode
+### Opção 1 — Clone + instalação manual (funciona em qualquer SO)
 ```bash
 git clone https://github.com/yuslen/memoria-viva.git
-cd memoria-viva && npm install -g .
+cd memoria-viva
+npm install          # instala as dependências locais (chalk, fs-extra)
+npm install -g .     # registra o CLI globalmente como `memoria-viva`
 ```
+
+### Opção 2 — Clone + instalador automático (Linux / Mac / WSL)
+```bash
+git clone https://github.com/yuslen/memoria-viva.git
+cd memoria-viva
+bash ./scripts/install-linux.sh
+```
+
+### Opção 3 — Clone + instalador automático (Windows PowerShell)
+```powershell
+git clone https://github.com/yuslen/memoria-viva.git
+cd memoria-viva
+powershell -ExecutionPolicy Bypass -File .\scripts\install-windows.ps1
+```
+
+### Opção 4 — One-liner (clona e instala automaticamente)
+Linux / Mac / WSL:
+```bash
+git clone https://github.com/yuslen/memoria-viva.git && cd memoria-viva && npm install && npm install -g .
+```
+Windows (PowerShell):
+```powershell
+git clone https://github.com/yuslen/memoria-viva.git; cd memoria-viva; npm install; npm install -g .
+```
+
+> Após a instalação, reinicie o terminal/IDE para que a alteração de PATH seja aplicada.
 
 ---
 
@@ -84,6 +104,7 @@ seu-projeto/
 │   └── ai/
 │       ├── CONTEXTO_ATUAL.md  ← Cérebro técnico do projeto
 │       ├── MODULOS_E_REGRAS.md ← Regras de negócio por módulo
+│       ├── DESIGN_SYSTEM.md   ← DNA Visual e Estilo
 │       └── HANDOFF_ATUAL.md   ← Diário de bordo entre agentes
 ├── scripts/
 │   ├── install-windows.ps1    ← Instalador Windows
@@ -172,10 +193,15 @@ O Memória Viva detecta automaticamente a stack do projeto e aplica as regras ad
 - Eloquent ORM + Laravel Migrations
 - Service Container para injeção de dependência
 
-### Node.js
-- Express / Fastify handlers
-- Prisma / TypeORM / Sequelize
-- Jest / Vitest para testes
+### Node.js — AdonisJS (Padrão full-stack)
+- **AdonisJS (TypeScript):** stack full-stack estilo Laravel — backend **e** frontend unificados no mesmo app (como PHP Slim/Laravel).
+- **Controllers** com responsabilidade única em `app/Controllers/` (Single Action ou resource) + **Repository Pattern** via Lucid (`app/Repositories/`).
+- **Injeção de Dependência** pelo IoC Container nativo do AdonisJS (bindings em `providers/`); proibido instanciar dependências manualmente.
+- **Frontend unificado** com Edge (`resources/views/`) ou Inertia — backend e frontend juntos, sem app separado.
+- **Lucid ORM** + migrations; **Sessões resilientes** em MySQL (`auth_sessions`) via `@adonisjs/session` (sobrevivem a restart/deploy).
+- Testes com **Japa** (padrão AdonisJS).
+
+> Outros frameworks Node (NestJS, Next.js, Express, Fastify) continuam sendo detectados automaticamente, mas o padrão recomendado para novos projetos é AdonisJS.
 
 ### Outras Stacks
 O Memória Viva também funciona com Python, Ruby, Go, .NET e outras stacks.
@@ -207,11 +233,39 @@ projeto/
 │   └── ai/
 │       ├── CONTEXTO_ATUAL.md  ← Cérebro técnico do projeto
 │       ├── MODULOS_E_REGRAS.md ← Regras de negócio por módulo
+│       ├── DESIGN_SYSTEM.md   ← DNA Visual e Estilo
 │       └── HANDOFF_ATUAL.md   ← Diário de bordo entre agentes
 └── routes/
     ├── index.php              ← Entrypoint mestre das rotas
     ├── web/                   ← Rotas WEB (admin.php, store.php, client.php, site.php)
     └── api/v1/                ← APIs RESTful (auth.php, stores.php, orders.php, drivers.php)
+```
+
+### Estrutura para Node.js (AdonisJS) — espelha o fluxo PHP
+
+```
+projeto/
+├── .agent/
+│   └── rules.md               ← Guardrails invioláveis da IA
+├── app/
+│   ├── Controllers/           ← Controllers (Single Action ou resource)
+│   │   ├── Admin/             ← Módulo Admin Master
+│   │   ├── Store/             ← Módulo Lojista
+│   │   ├── Driver/            ← Módulo Entregador
+│   │   └── Client/            ← Módulo Cliente / Marketplace
+│   ├── Repositories/          ← Repository Pattern (Lucid)
+│   ├── Models/                ← Entidades de Domínio (Lucid Models)
+│   └── Middleware/            ← SessionValidation, Permissions, ErrorHandler
+├── resources/
+│   └── views/                 ← Frontend unificado (Edge templates)
+├── database/
+│   └── migrations/            ← Migrations Lucid
+├── providers/                 ← IoC Container bindings (DI)
+├── start/
+│   └── routes.ts              ← Entrypoint mestre das rotas
+├── docs/
+│   └── ai/                    ← CONTEXTO_ATUAL.md, MODULOS_E_REGRAS.md, DESIGN_SYSTEM.md, HANDOFF_ATUAL.md
+└── public/                    ← Assets estáticos
 ```
 
 ---
@@ -337,6 +391,7 @@ memoria-viva/
 │   ├── rules.md               ← Regras invioláveis dos agentes
 │   ├── CONTEXTO_ATUAL.md      ← Cérebro técnico (Arquitetura)
 │   ├── MODULOS_E_REGRAS.md     ← Regras de negócio e arquivos
+│   ├── DESIGN_SYSTEM.md        ← DNA Visual e Estilo
 │   ├── HANDOFF_ATUAL.md        ← Memory Log e Checklist
 │   ├── deploy.yml              ← Workflow CI/CD Zero-Downtime
 │   └── mcp_config.json         ← Template MCP MySQL

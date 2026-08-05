@@ -83,9 +83,13 @@ class ContextGenerator {
 - **Strict Repositories:** Toda interação com banco de dados DEVE passar por Repositórios tipados (${this.dna.structure.hasRepositories ? 'Infrastructure/Persistence ou Repositories/' : 'Repositories/'}). Proibido PDO cru ou SQL solto.`;
         } else if (this.dna.language.includes('Node')) {
             stackRules = `
-- **Node.js Standard:** Modern ES Modules ou TypeScript estrito. Async/Await em todas as operações I/O.
-- **Arquitetura Backend:** Handlers/Controllers desacoplados da camada de dados.
-- **ORM / Repositórios:** Usar a abstração oficial (\`${this.dna.orm}\`) ou Repositories. Proibido SQL cru concatenado.`;
+- **Node.js Standard:** TypeScript estrito (\`strict: true\`); Async/Await obrigatório em toda operação de I/O.
+- **Arquitetura (espelha o fluxo PHP):** Controllers com responsabilidade única em \`app/Controllers/\` (Single Action ou resource) + Repository Pattern via Lucid/\`app/Repositories/\`.
+- **Injeção de Dependência:** Usar o IoC Container nativo do AdonisJS (bindings em \`providers/\`); proibido instanciar dependências manualmente ou usar singletons globais.
+- **Frontend Unificado:** Views server-rendered com Edge (\`resources/views/\`) ou Inertia; backend e frontend no mesmo app, como no Laravel.
+- **ORM / Repositórios:** Lucid ORM (\`@adonisjs/lucid\`); proibido SQL cru concatenado. Toda query passa por Model/Repository tipado.
+- **Sessões Resilientes:** Driver de sessão persistente (MySQL \`auth_sessions\`) via \`@adonisjs/session\`; logins sobrevivem a restart/deploy.
+- **Tratamento de Erro:** Nenhuma rota estoura 500 sem tratamento; usar o Exception Handler do AdonisJS.`;
         } else {
             stackRules = `
 - **Language Standard:** ${this.dna.language}. Manter tipagem estrita e padrões limpos.
@@ -94,6 +98,10 @@ class ContextGenerator {
 
         const projectHeader = `<!-- DNA DO PROJETO DETECTADO: ${this.dna.language} | Framework: ${this.dna.framework} | Banco: ${this.dna.database} | ORM: ${this.dna.orm} | UI: ${this.dna.uiFramework} -->\n\n`;
         content = projectHeader + content;
+
+        if (stackRules) {
+            content += `\n---\n\n## 🧩 ARQUITETURA DA STACK DETECTADA (${this.dna.framework})\n${stackRules}\n`;
+        }
 
         if (exists) {
             return { status: 'skipped', file: '.agent/rules.md' };
@@ -116,11 +124,15 @@ class ContextGenerator {
         let content = await fs.readFile(path.join(this.templatesDir, 'CONTEXTO_ATUAL.md'), 'utf8');
 
         // Preencher a tabela de stack dinamicamente
+        const tooling = this._getStackTooling();
         content = content
             .replace('PHP 8.2+ Strict Types', this.dna.language)
             .replace('*(preencher: Slim 4, Laravel 10+, etc.)*', this.dna.framework)
             .replace('MySQL / MariaDB (`utf8mb4_unicode_ci`)', this.dna.database)
-            .replace('*(preencher: Doctrine, Eloquent, Phinx)*', this.dna.orm);
+            .replace('*(preencher: Doctrine, Eloquent, Phinx)*', this.dna.orm)
+            .replace('*(preencher: PHP-DI, Laravel Container)*', tooling.di)
+            .replace('Monolog', tooling.logs)
+            .replace('PHPUnit', tooling.testes);
 
         if (!this.options.dryRun) {
             await fs.writeFile(dstPath, content, 'utf8');
@@ -204,6 +216,18 @@ class ContextGenerator {
         }
 
         return { status: 'skipped', file: relDstPath };
+    }
+
+    _getStackTooling() {
+        const f = this.dna.framework || '';
+        if (f.includes('AdonisJS')) return { di: 'AdonisJS IoC Container', logs: 'AdonisJS Logger (pino)', testes: 'Japa' };
+        if (f.includes('Laravel')) return { di: 'Laravel Container', logs: 'Monolog', testes: 'PHPUnit' };
+        if (f.includes('Slim')) return { di: 'PHP-DI (PSR-11)', logs: 'Monolog', testes: 'PHPUnit' };
+        if (f.includes('Symfony')) return { di: 'Symfony DI', logs: 'Monolog', testes: 'PHPUnit' };
+        if (f.includes('NestJS')) return { di: 'NestJS DI', logs: 'Winston / Pino', testes: 'Jest' };
+        if (f.includes('PHP')) return { di: 'PHP-DI / Laravel Container', logs: 'Monolog', testes: 'PHPUnit' };
+        if (f.includes('Node')) return { di: 'AdonisJS IoC Container', logs: 'AdonisJS Logger (pino)', testes: 'Japa' };
+        return { di: 'Container nativo', logs: 'Logger padrão', testes: 'Testes da stack' };
     }
 }
 
