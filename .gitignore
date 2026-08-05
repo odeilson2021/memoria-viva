@@ -6,6 +6,11 @@ node_modules/
 .env.mcp
 .env.local
 
+# Configurações de teste local MCP
+.mcp.json
+.cursor/
+opencode.json
+
 # IDEs e editores
 .vscode/
 .idea/

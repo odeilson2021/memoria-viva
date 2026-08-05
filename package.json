@@ -1,7 +1,7 @@
 {
   "name": "memoria-viva",
-  "version": "1.0.0",
-  "description": "Engine Global de Governança de IA e Memória Incremental de Contexto",
+  "version": "2.0.0",
+  "description": "Engine Global de Governança de IA, Contexto Dinâmico e Preservação Arquitetural",
   "main": "bin/memoria-viva.js",
   "bin": {
     "memoria-viva": "./bin/memoria-viva.js"
@@ -16,9 +16,15 @@
     "fs-extra": "^11.1.1"
   },
   "preferGlobal": true,
-  "os": ["win32", "linux", "darwin"],
+  "os": [
+    "win32",
+    "linux",
+    "darwin"
+  ],
   "files": [
     "bin/",
+    "engine/",
+    "intelligence/",
     "templates/",
     "scripts/",
     "package.json",

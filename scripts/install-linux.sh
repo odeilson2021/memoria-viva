@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # =============================================================================
-#  🧠 Memória Viva — Instalador Linux / Mac / WSL (Global)
+#  🧠 Memória Viva v2.0 — Instalador Linux / Mac / WSL (Global)
 #  Executar com: bash install-linux.sh
 # =============================================================================
 set -euo pipefail
@@ -16,7 +16,7 @@ fail()  { echo -e "  ${RED}❌ $1${RESET}"; exit 1; }
 echo -e "${MAGENTA}"
 cat << 'BANNER'
 ╔═══════════════════════════════════════════════════════════╗
-║     🧠 MEMÓRIA VIVA — AI Context & Governance Engine      ║
+║     🧠 MEMÓRIA VIVA v2.0 — AI Context & Governance Engine ║
 ║     Instalação Global para Linux / Mac / WSL                ║
 ╚═══════════════════════════════════════════════════════════╝
 BANNER
@@ -86,7 +86,7 @@ else
     fi
 
     if [ "${DRY_RUN:-}" != "true" ]; then
-        source "$SHELL_PROFILE"
+        source "$SHELL_PROFILE" 2>/dev/null || true
         ok "Shell profile recarregado"
     fi
 fi
@@ -97,7 +97,7 @@ if [ "${DRY_RUN:-}" = "true" ]; then
     ok "[DRY RUN] Verificaria: memoria-viva --version"
 else
     if command -v memoria-viva >/dev/null 2>&1; then
-        VERSION="$(memoria-viva --version 2>/dev/null || echo '1.0.0')"
+        VERSION="$(memoria-viva --version 2>/dev/null || echo '2.0.0')"
         ok "memoria-viva está disponível: $VERSION"
     else
         warn "O comando 'memoria-viva' pode não estar disponível ainda."
@@ -106,7 +106,7 @@ else
 fi
 
 # ── Resumo ────────────────────────────────────────────────────
-echo -e "\n${GREEN}✅ MEMÓRIA VIVA INSTALADA COM SUCESSO!${RESET}"
+echo -e "\n${GREEN}✅ MEMÓRIA VIVA v2.0 INSTALADA COM SUCESSO!${RESET}"
 echo -e "Projeto: ${GREEN}${PROJECT_ROOT}${RESET}"
 echo -e "Escopo: ${GREEN}Global (todos os projetos)${RESET}"
 echo -e "\n📋 Próximos passos:"
@@ -114,5 +114,5 @@ echo -e "  1. Reinicie qualquer terminal/IDE aberto"
 echo -e "  2. Navegue até qualquer projeto"
 echo -e "  3. Execute: ${CYAN}memoria-viva init${RESET}"
 echo -e "  4. Ou verifique com: ${CYAN}memoria-viva check${RESET}"
-echo -e "\n🔌 MCP MySQL: tools/mcp-mysql.js"
+echo -e "\n🔌 MCP MySQL/Postgres: .mcp.json"
 echo -e "📚 Docs: docs/ai/"

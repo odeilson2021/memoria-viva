@@ -1,7 +1,7 @@
 #!/usr/bin/env pwsh
 # =============================================================================
-#  🧠 Memória Viva — Instalador Windows (Global)
-#  Executar como Administrador para instalação global.
+#  🧠 Memória Viva v2.0 — Instalador Windows (Global)
+#  Executar no PowerShell para instalação global.
 # =============================================================================
 param(
     [switch]$Silent = $false,
@@ -18,8 +18,8 @@ function Write-Fail  { param($m) Write-Host "  ❌ $m" -ForegroundColor Red; exi
 Clear-Host
 Write-Host @"
 ╔═══════════════════════════════════════════════════════════╗
-║     🧠 MEMÓRIA VIVA — AI Context & Governance Engine      ║
-║     Instalação Global para Windows                            ║
+║     🧠 MEMÓRIA VIVA v2.0 — AI Context Engine              ║
+║     Instalação Global para Windows                        ║
 ╚═══════════════════════════════════════════════════════════╝
 "@ -ForegroundColor Magenta
 
@@ -33,7 +33,7 @@ Write-OK "Pré-requisitos OK"
 # ── Detectar diretório do projeto ─────────────────────────────
 Write-Step "Detectando diretório do projeto..."
 $ProjectRoot = Get-Location
-if (Test-Path (Join-Path $ProjectRoot ".git"))) {
+if (Test-Path (Join-Path $ProjectRoot ".git")) {
     Write-OK "Projeto Git detectado: $ProjectRoot"
 } else {
     Write-Warn "Diretório atual não é um repositório Git."
@@ -100,18 +100,18 @@ if ($DryRun) {
 Write-Host @"
 
 ╔═══════════════════════════════════════════════════════════╗
-║       ✅  MEMÓRIA VIVA INSTALADA COM SUCESSO!              ║
+║       ✅  MEMÓRIA VIVA v2.0 INSTALADA COM SUCESSO!         ║
 ╚═══════════════════════════════════════════════════════════╝
 
   📁 Projeto: $ProjectRoot
   🌐 Escopo: Global (todos os projetos)
 
   📋 PRÓXIMOS PASSOS:
-  ${chalk.dim('1.')} Reinicie qualquer terminal/IDE aberto
-  ${chalk.dim('2.')} Navegue até qualquer projeto
-  ${chalk.dim('3.')} Execute: ${chalk.cyan('memoria-viva init')}
-  ${chalk.dim('4.')} Ou verifique com: ${chalk.cyan('memoria-viva check')}
+  1. Reinicie qualquer terminal/IDE aberto
+  2. Navegue até qualquer projeto
+  3. Execute: memoria-viva init
+  4. Ou verifique com: memoria-viva check
 
-  🔌 MCP MySQL: tools/mcp-mysql.js
+  🔌 MCP MySQL/Postgres: .mcp.json
   📚 Docs: docs/ai/
 "@ -ForegroundColor Green

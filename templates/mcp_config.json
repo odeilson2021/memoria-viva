@@ -1,28 +1,12 @@
 {
-  "$comment": "Memória Viva — Template de Conexão MCP MySQL. NÃO versione credenciais.",
   "mcpServers": {
     "mysql": {
-      "command": "node",
-      "args": ["tools/mcp-mysql.js"],
-      "_comment": "Lê .env.mcp automaticamente com encodeURIComponent na senha."
-    }
-  },
-  "_setup": {
-    "step1": "Copie .env.mcp.example → .env.mcp e preencha as credenciais.",
-    "step2": "Reinicie a IDE para carregar o servidor MCP.",
-    "supported_tools": [
-      "list_tables",
-      "read_table_schema",
-      "run_select_query",
-      "get_database_summary",
-      "search_schema",
-      "analyze_query"
-    ],
-    "ide_configs": {
-      "claude_code": ".mcp.json",
-      "cursor": ".cursor/mcp.json",
-      "vscode": ".vscode/mcp.json",
-      "opencode": "opencode.json"
+      "command": "npx",
+      "args": [
+        "-y",
+        "@berthojoris/mcp-mysql-server",
+        "mysql://root:@127.0.0.1:3306/seu_banco"
+      ]
     }
   }
 }
