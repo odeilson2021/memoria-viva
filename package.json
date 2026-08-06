@@ -9,7 +9,8 @@
   "scripts": {
     "install:win": "powershell -ExecutionPolicy Bypass -File ./scripts/install-windows.ps1",
     "install:linux": "bash ./scripts/install-linux.sh",
-    "test": "node bin/memoria-viva.js --dry-run"
+    "test": "node --test",
+    "test:smoke": "node bin/memoria-viva.js --dry-run"
   },
   "dependencies": {
     "chalk": "^4.1.2",

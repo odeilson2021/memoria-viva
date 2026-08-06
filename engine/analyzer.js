@@ -38,6 +38,7 @@ class ProjectAnalyzer {
                 'code-reviewer',
                 'security-expert'
             ],
+            routes: [],
             detectedFiles: []
         };
 
@@ -72,6 +73,7 @@ class ProjectAnalyzer {
         await this._analyzeDirectories(dna);
         await this._analyzeEnvFiles(dna);
         await this._analyzeUIAndCSS(dna);
+        await this._analyzeRoutes(dna);
 
         return dna;
     }
@@ -210,6 +212,68 @@ class ProjectAnalyzer {
         if (dna.cssUtilities.length > 0) {
             dna.uiFramework = dna.cssUtilities.join(', ');
         }
+    }
+
+    async _analyzeRoutes(dna) {
+        const routes = [];
+        const root = this.root;
+        const push = (method, p, file) => {
+            if (!method || !p) return;
+            routes.push({ method: method.toUpperCase(), path: p.trim(), file, module: this._inferModule(`${file} ${p}`) });
+        };
+
+        // PHP — routes/web/*.php e routes/api/v1/*.php
+        const phpDirs = [
+            path.join(root, 'routes', 'web'),
+            path.join(root, 'routes', 'api', 'v1')
+        ];
+        for (const dir of phpDirs) {
+            if (!(await fs.pathExists(dir))) continue;
+            const files = await fs.readdir(dir);
+            for (const f of files) {
+                if (!f.endsWith('.php')) continue;
+                const content = await fs.readFile(path.join(dir, f), 'utf8');
+                const re = /\b(?:Route::|\$app->|router->|group\([^)]*\)->)?(get|post|put|patch|delete|options)\(\s*['"]([^'"]+)['"]/gi;
+                let m;
+                while ((m = re.exec(content))) {
+                    push(m[1], m[2], `routes/${path.basename(dir)}/${f}`);
+                }
+            }
+        }
+
+        // AdonisJS — start/ e routes/
+        const adonisFiles = [];
+        const scanAdonis = async (dir) => {
+            if (!(await fs.pathExists(dir))) return;
+            const entries = await fs.readdir(dir, { withFileTypes: true });
+            for (const e of entries) {
+                const full = path.join(dir, e.name);
+                if (e.isDirectory()) await scanAdonis(full);
+                else if (e.name.endsWith('.ts') || e.name.endsWith('.js')) adonisFiles.push(full);
+            }
+        };
+        await scanAdonis(path.join(root, 'start'));
+        await scanAdonis(path.join(root, 'routes'));
+        for (const file of adonisFiles) {
+            const content = await fs.readFile(file, 'utf8');
+            const re = /\b(?:Route|router)\.(get|post|put|patch|delete|options)\(\s*['"]([^'"]+)['"]/gi;
+            let m;
+            const rel = path.relative(root, file).replace(/\\/g, '/');
+            while ((m = re.exec(content))) push(m[1], m[2], rel);
+        }
+
+        dna.routes = routes;
+    }
+
+    _inferModule(file) {
+        const f = (file || '').toLowerCase();
+        if (f.includes('admin')) return 'Admin';
+        if (f.includes('store') || f.includes('merchant') || f.includes('lojista')) return 'Lojista';
+        if (f.includes('driver') || f.includes('entregador')) return 'Entregador';
+        if (f.includes('client') || f.includes('marketplace')) return 'Cliente';
+        if (f.includes('auth') || f.includes('login')) return 'Auth';
+        if (f.includes('api')) return 'API';
+        return 'Geral';
     }
 }
 

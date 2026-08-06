@@ -10,6 +10,7 @@ node_modules/
 .mcp.json
 .cursor/
 opencode.json
+mcp_config.json
 
 # IDEs e editores
 .vscode/

@@ -159,7 +159,7 @@ O comando `configure` configura os arquivos de MCP (`.mcp.json`, `.cursor/mcp.js
 
 ## 🔄 Comando `update` — Atualização de Arquivos
 
-O comando `update` compara os arquivos do template com os arquivos instalados no projeto e atualiza os que diferem, criando backups dos arquivos modificados pelo usuário.
+O comando `update` é um alias de `sync`: reanalisa o DNA do projeto, cria os arquivos da Memória Viva que estiverem ausentes e sincroniza as rotas detectadas automaticamente (`docs/ai/ROTAS_DETECTADAS.md` e a tabela de Rotas em `CONTEXTO_ATUAL.md`). Arquivos já existentes e editados pelo usuário não são sobrescritos.
 
 ---
 

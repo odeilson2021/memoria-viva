@@ -91,6 +91,9 @@ async function cmdInit(flags) {
     for (const file of genResults.updatedFiles) success(`Atualizado: ${file}`);
     for (const file of genResults.skippedFiles) warning(`Mantido (já existe): ${file}`);
 
+    log('Sincronizando rotas detectadas com o contexto...');
+    await generator.syncContext();
+
     log('Configurando ponte MCP e integração com IDEs...');
     const bridge = new MCPBridge(dna, { dryRun: flags.dryRun });
     const mcpResults = await bridge.configure();
@@ -148,6 +151,7 @@ async function cmdSync(flags) {
 
     const generator = new ContextGenerator(dna, { dryRun: flags.dryRun, silent: flags.silent });
     const genResults = await generator.generate();
+    await generator.syncContext();
 
     success(`Sincronização concluída! (${genResults.createdFiles.length} criados, ${genResults.updatedFiles.length} atualizados, ${genResults.skippedFiles.length} mantidos)`);
 }

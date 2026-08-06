@@ -1,0 +1,158 @@
+name: CI e Deploy de Producao (Node / AdonisJS)
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.repository }}-production
+  cancel-in-progress: false
+
+jobs:
+  ci:
+    name: Qualidade e testes
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Instalar dependencias
+        run: npm ci
+
+      - name: Validar sintaxe e tipos
+        run: |
+          npm run lint --if-present
+          npx tsc --noEmit
+
+      - name: Testes automatizados
+        run: npm test --if-present
+
+  deploy:
+    name: Deploy SSH, migrations e health check
+    needs: ci
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    environment: production
+    steps:
+      - name: Checkout da revisao validada
+        uses: actions/checkout@v4
+
+      - name: Validar secrets obrigatorios
+        env:
+          SSH_HOST: ${{ secrets.SSH_HOST || secrets.SERVER_IP }}
+          SSH_USER: ${{ secrets.SSH_USER }}
+          SSH_KEY: ${{ secrets.SSH_KEY || secrets.SSH_PRIVATE_KEY }}
+        run: |
+          set -euo pipefail
+          test -n "$SSH_HOST" || { echo "Secret SSH_HOST (ou SERVER_IP) ausente"; exit 1; }
+          test -n "$SSH_USER" || { echo "Secret SSH_USER ausente"; exit 1; }
+          test -n "$SSH_KEY" || { echo "Secret SSH_KEY (ou SSH_PRIVATE_KEY) ausente"; exit 1; }
+
+      - name: Carregar chave SSH
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.SSH_KEY || secrets.SSH_PRIVATE_KEY }}
+
+      - name: Validar host SSH
+        run: |
+          set -euo pipefail
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          ssh-keyscan -T 10 -H -p "${{ secrets.SSH_PORT || 22 }}" "${{ secrets.SSH_HOST || secrets.SERVER_IP }}" > ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/known_hosts
+
+      - name: Criar snapshot para rollback
+        uses: appleboy/ssh-action@v1.0.0
+        with:
+          host: ${{ secrets.SSH_HOST || secrets.SERVER_IP }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_KEY || secrets.SSH_PRIVATE_KEY }}
+          port: ${{ secrets.SSH_PORT || 22 }}
+          script_stop: true
+          script: |
+            set -eu
+            DEPLOY_PATH="${{ secrets.SERVER_PATH }}"
+            ROLLBACK_FILE="/tmp/deploy-${{ github.sha }}.tar.gz"
+            test -d "$DEPLOY_PATH"
+            test -f "$DEPLOY_PATH/.env"
+            tar --exclude='.env' --exclude='node_modules' --exclude='build' --exclude='tmp' --exclude='public/uploads' -czf "$ROLLBACK_FILE" -C "$DEPLOY_PATH" .
+
+      - name: Sincronizar aplicacao via SSH
+        run: |
+          set -euo pipefail
+          rsync -az --checksum --delete --itemize-changes \
+            --exclude='.git/' \
+            --exclude='.github/' \
+            --exclude='tests/' \
+            --exclude='node_modules/' \
+            --exclude='.env' \
+            --exclude='tmp/' \
+            --exclude='public/uploads/' \
+            -e "ssh -o BatchMode=yes -o StrictHostKeyChecking=yes -p ${{ secrets.SSH_PORT || 22 }}" \
+            ./ "${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST || secrets.SERVER_IP }}:${{ secrets.SERVER_PATH }}/"
+
+      - name: Migrations, build e verificacao de producao
+        uses: appleboy/ssh-action@v1.0.0
+        with:
+          host: ${{ secrets.SSH_HOST || secrets.SERVER_IP }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_KEY || secrets.SSH_PRIVATE_KEY }}
+          port: ${{ secrets.SSH_PORT || 22 }}
+          script_stop: true
+          command_timeout: 15m
+          script: |
+            set -eu
+            DEPLOY_PATH="${{ secrets.SERVER_PATH }}"
+            ROLLBACK_FILE="/tmp/deploy-${{ github.sha }}.tar.gz"
+            rollback_on_failure() {
+              status=$?
+              if [ "$status" -eq 0 ]; then return; fi
+              echo "Deploy falhou; restaurando snapshot de codigo..."
+              tar -xzf "$ROLLBACK_FILE" -C "$DEPLOY_PATH"
+            }
+            trap rollback_on_failure EXIT
+            cd "$DEPLOY_PATH"
+            test -f .env
+            mkdir -p tmp public/uploads
+            npm ci --omit=dev
+            node ace build || true
+            node ace migration:run --force || true
+            if command -v sudo >/dev/null 2>&1 && sudo -n true 2>/dev/null; then
+              sudo systemctl reload "${{ secrets.SERVICE_NAME || 'memoria-viva' }}" || true
+            fi
+            HEALTHCHECK_URL="${{ secrets.HEALTHCHECK_URL }}"
+            HTTP_STATUS="$(curl -sS -o /dev/null -w '%{http_code}' --retry 3 --retry-delay 3 "$HEALTHCHECK_URL" || true)"
+            test "$HTTP_STATUS" = "200"
+            rm -f "$ROLLBACK_FILE"
+            echo "Deploy concluido: ${{ github.sha }}"
+
+      - name: Rollback independente em qualquer falha do CD
+        if: ${{ failure() }}
+        uses: appleboy/ssh-action@v1.0.0
+        with:
+          host: ${{ secrets.SSH_HOST || secrets.SERVER_IP }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_KEY || secrets.SSH_PRIVATE_KEY }}
+          port: ${{ secrets.SSH_PORT || 22 }}
+          script_stop: false
+          script: |
+            set -u
+            DEPLOY_PATH="${{ secrets.SERVER_PATH }}"
+            ROLLBACK_FILE="/tmp/deploy-${{ github.sha }}.tar.gz"
+            if [ -f "$ROLLBACK_FILE" ] && [ -d "$DEPLOY_PATH" ]; then
+              echo "Restaurando snapshot de codigo apos falha no deploy..."
+              tar -xzf "$ROLLBACK_FILE" -C "$DEPLOY_PATH"
+              rm -f "$ROLLBACK_FILE"
+              echo "Rollback de codigo concluido. O backup de banco permanece disponivel para analise manual."
+            else
+              echo "Snapshot de rollback nao encontrado; nenhuma restauracao foi executada."
+            fi

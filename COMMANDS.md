@@ -44,7 +44,7 @@ Após esse procedimento, o comando `memoria-viva` estará disponível em qualque
 | `memoria-viva check` | **Audita a saúde da Memória Viva no projeto.** Valida se todos os guardrails, diretrizes e memórias estão ativos e em dia. | `memoria-viva check` |
 | `memoria-viva status` | **Exibe o status e DNA do projeto.** Mostra a linguagem, framework, ORM e banco de dados detectados. | `memoria-viva status` |
 | `memoria-viva configure` | **Configura as pontes MCP e IDEs.** Gera/atualiza as configurações para Claude Code, Cursor, VS Code e OpenCode. | `memoria-viva configure` |
-| `memoria-viva update` | **Atualiza modelos e templates.** Sincroniza os templates locais com a versão global mais recente. | `memoria-viva update` |
+| `memoria-viva update` | **Alias de `sync`.** Reanalisa o projeto e sincroniza rotas detectadas (não sobrescreve arquivos editados). | `memoria-viva update` |
 | `memoria-viva --help` | **Exibe o menu de ajuda interativo.** Mostra todos os comandos, flags e exemplos. | `memoria-viva --help` |
 | `memoria-viva --version` | **Exibe a versão do CLI.** Retorna `memoria-viva v2.0.0`. | `memoria-viva --version` |
 

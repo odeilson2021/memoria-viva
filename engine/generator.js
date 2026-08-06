@@ -55,8 +55,12 @@ class ContextGenerator {
         const designResult = await this._generateDesignSystemFile();
         this._trackResult(designResult, createdFiles, updatedFiles, skippedFiles);
 
+        // 6.1 Copiar skills de IA para o projeto alvo (.agent/skills/)
+        const skillsResult = await this._copySkills();
+        this._trackResult(skillsResult, createdFiles, updatedFiles, skippedFiles);
+
         // 7. Processar .github/workflows/deploy.yml (Workflow CI/CD)
-        const deployResult = await this._copyTemplateIfMissing('deploy.yml', '.github/workflows/deploy.yml');
+        const deployResult = await this._copyTemplateIfMissing(this._deployTemplate(), '.github/workflows/deploy.yml');
         this._trackResult(deployResult, createdFiles, updatedFiles, skippedFiles);
 
         return { createdFiles, updatedFiles, skippedFiles };
@@ -199,6 +203,34 @@ class ContextGenerator {
         return { status: 'created', file: 'docs/ai/DESIGN_SYSTEM.md' };
     }
 
+    _deployTemplate() {
+        if (this.dna.language.includes('Node')) return 'deploy-node.yml';
+        return 'deploy.yml';
+    }
+
+    async _copySkills() {
+        const srcDir = path.join(this.globalRoot, 'intelligence', 'skills');
+        if (!await fs.pathExists(srcDir)) {
+            return { status: 'skipped', file: '.agent/skills/' };
+        }
+        const dstDir = path.join(this.dna.root, '.agent', 'skills');
+        if (!this.options.dryRun) {
+            await fs.ensureDir(dstDir);
+        }
+        const files = await fs.readdir(srcDir);
+        let copied = 0;
+        for (const f of files) {
+            if (!f.endsWith('.md')) continue;
+            const dst = path.join(dstDir, f);
+            if (await fs.pathExists(dst)) continue;
+            if (!this.options.dryRun) {
+                await fs.copy(path.join(srcDir, f), dst);
+            }
+            copied++;
+        }
+        return { status: copied ? 'created' : 'skipped', file: '.agent/skills/' };
+    }
+
     async _copyTemplateIfMissing(templateName, relDstPath) {
         const dstPath = path.join(this.dna.root, relDstPath);
         const exists = await fs.pathExists(dstPath);
@@ -216,6 +248,62 @@ class ContextGenerator {
         }
 
         return { status: 'skipped', file: relDstPath };
+    }
+
+    async syncContext() {
+        return this._syncContext();
+    }
+
+    async _syncContext() {
+        const routes = this.dna.routes || [];
+        const rotasPath = path.join(this.dna.root, 'docs', 'ai', 'ROTAS_DETECTADAS.md');
+        if (!this.options.dryRun) {
+            await fs.ensureDir(path.dirname(rotasPath));
+            await fs.writeFile(rotasPath, this._buildRotasMarkdown(routes), 'utf8');
+        }
+
+        const ctxPath = path.join(this.dna.root, 'docs', 'ai', 'CONTEXTO_ATUAL.md');
+        if (await fs.pathExists(ctxPath)) {
+            let ctx = await fs.readFile(ctxPath, 'utf8');
+            if (ctx.includes('*(preencher)*')) {
+                const table = this._buildRotasTable(routes);
+                if (table) {
+                    const lines = ctx.split('\n');
+                    const idx = lines.findIndex(l => l.includes('*(preencher)*'));
+                    if (idx >= 0) {
+                        lines.splice(idx, 1, ...table.trimEnd().split('\n'));
+                        ctx = lines.join('\n');
+                    }
+                    if (!this.options.dryRun) {
+                        await fs.writeFile(ctxPath, ctx, 'utf8');
+                    }
+                }
+            }
+        }
+        return { status: 'updated', file: 'docs/ai/CONTEXTO_ATUAL.md' };
+    }
+
+    _buildRotasTable(routes) {
+        if (!routes.length) return '';
+        return routes.map(r => {
+            const prefix = '/' + (r.path.split('/')[1] || '');
+            return `| ${r.module} | ${prefix} | — | ${r.file} |\n`;
+        }).join('');
+    }
+
+    _buildRotasMarkdown(routes) {
+        const header = `# 🛣️ ROTAS DETECTADAS (auto-sync)
+
+> Gerado por \`memoria-viva sync\`. Confira e complemente em CONTEXTO_ATUAL.md / MODULOS_E_REGRAS.md.
+
+| Método | Caminho | Módulo | Arquivo |
+|--------|--------|--------|---------|
+`;
+        if (!routes.length) {
+            return header + '| — | — | — | nenhuma rota detectada automaticamente |\n';
+        }
+        const rows = routes.map(r => `| ${r.method} | ${r.path} | ${r.module} | ${r.file} |`).join('\n');
+        return header + rows + '\n';
     }
 
     _getStackTooling() {
