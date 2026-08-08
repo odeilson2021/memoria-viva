@@ -77,6 +77,7 @@ class ProjectAnalyzer {
             ],
             routes: [],
             tables: [],
+            tableUsage: {},
             tableEvidence: 'migration_mentions',
             validationCommands: [],
             detectedFiles: [],
@@ -126,6 +127,7 @@ class ProjectAnalyzer {
         await this._analyzeUIAndCSS(dna);
         await this._analyzeRoutes(dna);
         await this._analyzeTables(dna);
+        await this._analyzeTableUsage(dna);
         await this._analyzeInventory(dna);
 
         dna.languages = [...new Set(dna.languages)];
@@ -723,6 +725,42 @@ class ProjectAnalyzer {
         }
 
         dna.tables = [...tables].sort();
+    }
+
+    _escapeRegExp(value) {
+        return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    }
+
+    async _analyzeTableUsage(dna) {
+        const tables = dna.tables || [];
+        if (!tables.length) return;
+
+        const codeExtensions = new Set([...SOURCE_EXTENSIONS].filter(ext => ext !== '.md' && ext !== '.sql'));
+        const files = [];
+        for (const entry of await this._collectFiles(this.root, codeExtensions)) {
+            const rel = path.relative(this.root, entry).replace(/\\/g, '/');
+            if (!files.includes(rel)) files.push(rel);
+        }
+        files.sort();
+
+        const usage = {};
+        for (const file of files) {
+            const content = await fs.readFile(path.join(this.root, file), 'utf8');
+            for (const table of tables) {
+                const leaf = table.split('.').pop();
+                const candidates = [...new Set([table, leaf])];
+                const matched = candidates.some(candidate => {
+                    const expression = new RegExp(
+                        `(?:\\b(?:from|into|update|join|table)\\b\\s+["'\`]{0,1})${this._escapeRegExp(candidate)}\\b`,
+                        'gi'
+                    );
+                    return expression.test(content);
+                });
+                if (matched) (usage[table] = usage[table] || []).push(file);
+            }
+        }
+
+        dna.tableUsage = usage;
     }
 
     async _analyzeInventory(dna) {

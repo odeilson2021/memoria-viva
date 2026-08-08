@@ -9,6 +9,7 @@ const os = require('node:os');
 const ProjectAnalyzer = require('../engine/analyzer');
 const ContextGenerator = require('../engine/generator');
 const MemoryState = require('../engine/memory-state');
+const KnowledgeGraph = require('../engine/graph');
 
 async function tmpProject(t, name) {
     const root = await fs.mkdtemp(path.join(os.tmpdir(), `mv-${name}-`));
@@ -383,5 +384,29 @@ test('grafo é idempotente e preserva nós/arestas estáveis', async t => {
     await regen.syncContext();
     assert.equal(await fs.readFile(path.join(root, 'docs/ai/GRAFO.md'), 'utf8'), firstGraph);
     assert.equal(await fs.readFile(path.join(root, '.agent/memory.json'), 'utf8'), firstState);
+});
+
+test('grafo liga rota/arquivo à tabela quando o nome aparece no código', async t => {
+    const root = await tmpProject(t, 'graph-usage');
+    await scaffold(root, {
+        'package.json': { name: 'api', dependencies: { express: '^5', pg: '^8' } },
+        'src/routes/orders.js': "router.get('/orders', h); const q = 'SELECT * FROM orders WHERE id = $1';",
+        'db/migrations/001.sql': 'CREATE TABLE orders (id bigint);'
+    });
+
+    const dna = await new ProjectAnalyzer(root).analyze();
+    assert.deepEqual(dna.tableUsage.orders, ['src/routes/orders.js']);
+
+    const graph = new KnowledgeGraph(dna).build();
+    const edges = graph.edges.filter(edge => edge.label === 'acessa tabela');
+    assert.ok(edges.length >= 2, 'esperadas arestas arquivo→tabela e rota→tabela');
+    const labels = edges.map(edge => (graph._nodeIndex.get(edge.target) || {}).label);
+    assert.ok(labels.includes('orders'), 'a tabela orders deve ser o destino');
+
+    const generator = new ContextGenerator(dna);
+    await generator.generate();
+    await generator.syncContext();
+    const graphMarkdown = await fs.readFile(path.join(root, 'docs/ai/GRAFO.md'), 'utf8');
+    assert.match(graphMarkdown, /acessa tabela/);
 });
 

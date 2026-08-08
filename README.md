@@ -164,7 +164,7 @@ O grafo é conservador: relações dinâmicas de runtime podem não aparecer, e 
 O Memória Viva reduz releitura e detecta divergência; **não** substitui testes nem compreensão do fluxo afetado. Limites conhecidos:
 
 - **Não entende runtime.** Rotas dinâmicas, grupos, middleware e o schema real do banco vivo não são provados — só há evidência estática de migrations.
-- **Não infere regras de negócio nem decisões.** Módulos são *inferidos pelo nome do arquivo* e o grafo não liga rota→tabela (sem análise de ORM estática). Decisões exigem registro humano/agente.
+- **Não infere regras de negócio nem decisões.** Módulos são *inferidos pelo nome do arquivo*. O grafo liga rota/arquivo → tabela **apenas quando o nome da tabela (vindo das migrations) aparece num contexto SQL no código** — detecção conservadora, sujeita a falso positivo/negativo. Análise profunda de ORM continua fora de escopo. Decisões exigem registro humano/agente.
 - **Grafo conservador.** Relações dinâmicas podem não aparecer; trate `GRAFO.*` como auxílio visual, não fonte — o `memory.json` é a fonte canônica.
 - **Sem noção de importância.** O fingerprint reage a qualquer mudança de conteúdo, não só às relevantes.
 - **Tabelas de migrations são históricas**, não prova do banco atual.

@@ -42,6 +42,18 @@ class KnowledgeGraph {
         this.edges.push({ source: sourceId, target: targetId, label });
     }
 
+    _fileId(file) {
+        return `f_${this._slug(file)}`;
+    }
+
+    _routeId(route) {
+        return `r_${this._slug(`${route.method}_${route.path}`)}`;
+    }
+
+    _moduleId(name) {
+        return `m_${this._slug(name)}`;
+    }
+
     _slug(value, maxLength = 56) {
         const slug = String(value)
             .replace(/[^A-Za-z0-9]+/g, '_')
@@ -95,9 +107,9 @@ class KnowledgeGraph {
         }
 
         for (const moduleName of Object.keys(groups).sort()) {
-            const moduleId = this._addNode('module', this._label(moduleName), `m_${this._slug(moduleName)}`).id;
+            const moduleId = this._addNode('module', this._label(moduleName), this._moduleId(moduleName)).id;
             for (const file of [...groups[moduleName]].sort()) {
-                const fileId = this._addNode('file', this._label(file), `f_${this._slug(file)}`).id;
+                const fileId = this._addNode('file', this._label(file), this._fileId(file)).id;
                 this._link(moduleId, fileId, 'implementada em');
             }
         }
@@ -106,11 +118,11 @@ class KnowledgeGraph {
             const routeId = this._addNode(
                 'route',
                 `${this._label(route.method)} ${this._label(route.path)}`,
-                `r_${this._slug(`${route.method}_${route.path}`)}`
+                this._routeId(route)
             ).id;
-            const moduleId = this._addNode('module', this._label(route.module || 'Geral'), `m_${this._slug(route.module || 'Geral')}`).id;
+            const moduleId = this._addNode('module', this._label(route.module || 'Geral'), this._moduleId(route.module || 'Geral')).id;
             this._link(routeId, moduleId, 'pertence a');
-            const fileId = this._addNode('file', this._label(route.file), `f_${this._slug(route.file)}`).id;
+            const fileId = this._addNode('file', this._label(route.file), this._fileId(route.file)).id;
             this._link(routeId, fileId, 'definida em');
         }
     }
@@ -121,10 +133,28 @@ class KnowledgeGraph {
         const databaseId = this.dna.database && this.dna.database !== 'Unknown'
             ? this._addNode('stack', this._label(this.dna.database), 's_database').id
             : null;
+        const usage = this.dna.tableUsage || {};
+        const routesByFile = {};
+        for (const route of this.dna.routes || []) {
+            (routesByFile[route.file] = routesByFile[route.file] || []).push(route);
+        }
 
         for (const table of tables.sort()) {
             const tableId = this._addNode('table', this._label(table), `t_${this._slug(table)}`).id;
             if (databaseId) this._link(tableId, databaseId, 'armazenada em');
+
+            for (const file of [...new Set(usage[table] || [])].sort()) {
+                const fileId = this._addNode('file', this._label(file), this._fileId(file)).id;
+                this._link(fileId, tableId, 'acessa tabela');
+                for (const route of routesByFile[file] || []) {
+                    const routeId = this._addNode(
+                        'route',
+                        `${this._label(route.method)} ${this._label(route.path)}`,
+                        this._routeId(route)
+                    ).id;
+                    this._link(routeId, tableId, 'acessa tabela');
+                }
+            }
         }
     }
 
