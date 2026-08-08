@@ -10,13 +10,16 @@
     "install:win": "powershell -ExecutionPolicy Bypass -File ./scripts/install-windows.ps1",
     "install:linux": "bash ./scripts/install-linux.sh",
     "test": "node --test",
-    "test:smoke": "node bin/memoria-viva.js --dry-run"
+    "test:smoke": "node bin/memoria-viva.js sync --dry-run --silent"
   },
   "dependencies": {
     "chalk": "^4.1.2",
     "fs-extra": "^11.1.1"
   },
   "preferGlobal": true,
+  "engines": {
+    "node": ">=18"
+  },
   "os": [
     "win32",
     "linux",

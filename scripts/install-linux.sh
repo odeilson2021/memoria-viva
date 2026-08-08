@@ -27,6 +27,8 @@ step "Verificando pré-requisitos..."
 command -v node  >/dev/null || fail "Node.js não encontrado. Instale o Node.js 18+ primeiro."
 command -v npm   >/dev/null || fail "npm não encontrado. Instale o Node.js 18+ primeiro."
 command -v git   >/dev/null || warn "Git não encontrado. Alguns recursos podem não funcionar."
+NODE_MAJOR="$(node -p 'process.versions.node.split(".")[0]')"
+[ "$NODE_MAJOR" -ge 18 ] || fail "Node.js 18+ obrigatório; encontrado: $(node --version)"
 ok "Pré-requisitos OK"
 
 # ── Detectar diretório do projeto ─────────────────────────────
@@ -60,11 +62,10 @@ NPM_PREFIX="$(npm config get prefix)"
 NPM_GLOBAL_BIN="${NPM_PREFIX}/bin"
 
 SHELL_PROFILE=""
-if [ -f "$HOME/.bashrc" ]; then
-    SHELL_PROFILE="$HOME/.bashrc"
-elif [ -f "$HOME/.zshrc" ]; then
-    SHELL_PROFILE="$HOME/.zshrc"
-fi
+case "${SHELL:-}" in
+    */zsh)  [ -f "$HOME/.zshrc" ] && SHELL_PROFILE="$HOME/.zshrc" ;;
+    */bash) [ -f "$HOME/.bashrc" ] && SHELL_PROFILE="$HOME/.bashrc" ;;
+esac
 
 if [ -z "$SHELL_PROFILE" ]; then
     warn "Nenhum arquivo de perfil de shell encontrado (.bashrc ou .zshrc)."
@@ -85,10 +86,7 @@ else
         fi
     fi
 
-    if [ "${DRY_RUN:-}" != "true" ]; then
-        source "$SHELL_PROFILE" 2>/dev/null || true
-        ok "Shell profile recarregado"
-    fi
+    [ "${DRY_RUN:-}" = "true" ] || warn "Abra um novo terminal para carregar o PATH atualizado."
 fi
 
 # ── Verificar instalação ──────────────────────────────────────
@@ -97,8 +95,8 @@ if [ "${DRY_RUN:-}" = "true" ]; then
     ok "[DRY RUN] Verificaria: memoria-viva --version"
 else
     if command -v memoria-viva >/dev/null 2>&1; then
-        VERSION="$(memoria-viva --version 2>/dev/null || echo '2.0.0')"
-        ok "memoria-viva está disponível: $VERSION"
+    VERSION="$(memoria-viva --version 2>/dev/null)"
+    ok "memoria-viva está disponível: $VERSION"
     else
         warn "O comando 'memoria-viva' pode não estar disponível ainda."
         warn "Reinicie o terminal para aplicar as alterações do PATH."
@@ -114,5 +112,5 @@ echo -e "  1. Reinicie qualquer terminal/IDE aberto"
 echo -e "  2. Navegue até qualquer projeto"
 echo -e "  3. Execute: ${CYAN}memoria-viva init${RESET}"
 echo -e "  4. Ou verifique com: ${CYAN}memoria-viva check${RESET}"
-echo -e "\n🔌 MCP MySQL/Postgres: .mcp.json"
+echo -e "\n🔌 MCP MySQL opcional: memoria-viva mcp"
 echo -e "📚 Docs: docs/ai/"

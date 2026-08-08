@@ -1,33 +1,10 @@
-# 🎨 DIRETRIZES DE TECNOLOGIA: FRONTEND & UI
+# Diretrizes condicionais — frontend e UI
 
-> **Escopo:** Componentização, CSS, Design Tokens, Estado e Performance Visual para Web Applications.
+> Confirme framework, browser targets, design tokens e componentes antes de aplicar uma recomendação.
 
----
-
-## 🎨 1. COMPONENTIZAÇÃO E CLEAN HTML
-
-1. **Semântica HTML5:**
-   - Utilizar elementos semânticos apropriados: `<header>`, `<nav>`, `<main>`, `<section>`, `<article>`, `<aside>`, `<footer>`.
-   - Elementos interativos DEVEM utilizar `<button>` ou `<a>` com atributo `href` válido.
-
-2. **Componentização Modular:**
-   - Evitar arquivos gigantescos de template com milhares de linhas.
-   - Extrair partes reutilizáveis em componentes isolados (ex: Header, Sidebar, Modal, DataTable, ActionCard).
-
----
-
-## 💅 2. ESTILIZAÇÃO E FRAMEWORKS CSS
-
-1. **Uso de Design Tokens:**
-   - Definir variáveis CSS nativas (`:root { --primary-color: #...; }`) ou utilizar a configuração customizada do Tailwind CSS (`tailwind.config.js`).
-   - Evitar valores *hardcoded* arbitrários espalhados no código (ex: `style="color: #3b82f6"`).
-
-2. **Acessibilidade Visual:**
-   - Garantir alto contraste de cores para leitura.
-   - Suporte a estados de foco visíveis (`outline` / `ring`) para navegabilidade por teclado.
-
----
-
-## ⚡ 3. PERFORMANCE E ASSETS
-- **Lazy Loading:** Imagens abaixo da dobra DEVEM utilizar `loading="lazy"`.
-- **Minificação:** Bundles CSS e JS minificados em builds de produção.
+- Preserve semântica e padrões interativos existentes; escolha `button`, link ou controle conforme a ação real.
+- Extraia componentes quando houver reutilização/complexidade comprovada, não por tamanho arbitrário.
+- Use o sistema de tokens vigente. Se ele não existir, criar um é decisão separada, não correção automática.
+- Garanta foco, teclado, labels, alternativas textuais e contraste nas superfícies alteradas.
+- Lazy loading, minificação e divisão de bundle dependem do recurso, build e medição reais; não aplique mecanicamente.
+- Valide estados e breakpoints afetados e registre o que foi ou não conferido.

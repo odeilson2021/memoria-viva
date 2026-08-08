@@ -1,22 +1,22 @@
+<!-- MEMORIA_VIVA:MANAGED_REFERENCE -->
+
 # SKILL: database-dba
 
-DBA — integridade, performance, indexação, Repository. Ative para schema, queries, migrations e acesso a dados.
+Ative para schema, queries, migrations, integridade, concorrência e performance de dados.
 
-## Proibições
-- Nada de SQL solto/concatenado nem PDO cru fora da camada de persistência. Toda query passa por Repository tipado (`Infrastructure/Persistence/` ou `Repositories/`).
-- Nada de N+1: não execute SQL dentro de loop; use JOIN/WHERE IN/Eager Loading.
-- Multi‑tabela → transação explícita (BEGIN/COMMIT/ROLLBACK).
+## Evidência antes da mudança
 
-## Indexação & performance
-- FK (`store_id`, `user_id`, `order_id`) com índice + declaração de FK.
-- Índice composto ordenado da menor p/ maior cardinalidade (ex: `idx_store_status_date`).
-- Tabelas >100k: evite OFFSET alto; use paginação por cursor (`WHERE id > last_id`).
-- MySQL/MariaDB: charset `utf8mb4` / collation `utf8mb4_unicode_ci`. Tabelas `snake_case` inglês plural; PK `id`.
+- Confirme engine/versão, schema real, migration history, camada de acesso usada e consultas afetadas.
+- Use `EXPLAIN`/plano de execução e métricas representativas antes de afirmar gargalo ou benefício de índice.
+- Preserve convenções existentes; não introduza Repository, ORM, soft delete, timestamps, multi-tenancy ou nomenclatura sem evidência/requisito.
 
-## Schema
-- Colunas `created_at`, `updated_at`; soft delete via `deleted_at` quando aplicável.
-- Metadados dinâmicos por tenant → coluna JSON, não dezenas de colunas nulas.
-- Nunca altere schema em produção sem Migration versionada; migrations de produção são aditivas.
+## Integridade
+
+- Parametrize entrada externa e respeite a abstração de dados vigente.
+- Use transação quando o conjunto precisa ser atômico; trate retry/idempotência conforme o banco e o fluxo reais.
+- Migrations devem ser versionadas, testadas em ambiente descartável e acompanhadas de compatibilidade/rollback. Nunca aplique em produção como simples verificação.
+- Índices derivam das consultas, filtros, ordenação, seletividade e custo de escrita — não de uma regra fixa de cardinalidade.
 
 ## Verificação
-Valide com `EXPLAIN`/`DESCRIBE` via MCP MySQL; confirme índices usados e ausência de full scan antes de concluir.
+
+Teste migration para frente/rollback quando suportado, integridade e concorrência relevantes, e compare o plano de execução. Registre o que não pôde ser confirmado no banco vivo.

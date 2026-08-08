@@ -1,139 +1,44 @@
-# 🔌 GUIA COMPLETO: CONFIGURAÇÃO DO MCP MYSQL (`@berthojoris/mcp-mysql-server`)
+# MCP MySQL opcional
 
-> **Model Context Protocol (MCP) — MySQL Server Integration**
-> Permite que assistentes de IA (OpenCode, Cursor, VS Code, Claude Code, Claude Desktop) consultem schemas, tabelas e façam analises diretamente no banco de dados com total segurança.
+O Memória Viva pode configurar `@berthojoris/mcp-mysql-server` para consulta de contexto do banco. Essa integração é separada da memória do projeto e só é alterada por comando explícito.
 
----
-
-## 📋 1. Pré-Requisitos
-
-- **Node.js**: v18.0.0 ou superior
-- **NPM / NPX**: Disponíveis no terminal (`node -v` e `npx -v`)
-- **Pacote MCP**: `@berthojoris/mcp-mysql-server`
-- **Banco de Dados**: MySQL / MariaDB acessível via rede ou localhost
-
----
-
-## 🔑 2. Variáveis de Ambiente (`.env.mcp`)
-
-Crie ou edite o arquivo `.env.mcp` na raiz do projeto (**nunca versione este arquivo no Git!**):
-
-```env
-# Configurações de Conexão MCP MySQL
-MYSQL_HOST=127.0.0.1
-MYSQL_PORT=3306
-MYSQL_DATABASE=seu_banco
-MYSQL_USER=root
-MYSQL_PASSWORD=sua_senha_segura
-MYSQL_CHARSET=utf8mb4
-```
-
-> ⚠️ **Segurança:** O arquivo `.env.mcp` já está incluído no `.gitignore`. Nunca insira senhas diretamente em arquivos commitados.
-
----
-
-## 🛠️ 3. Configuração Automática via CLI (`memoria-viva mcp`)
-
-Para configurar interativamente todas as IDEs de uma só vez, execute no terminal:
+## Configuração local
 
 ```bash
 memoria-viva mcp
 ```
 
-O assistente solicitará Host, Porta, Usuário, Senha e Database e gerará automaticamente:
-- `.env.mcp` (Credenciais locais)
-- `.mcp.json` (Claude Code CLI)
-- `.cursor/mcp.json` (Cursor IDE)
-- `.vscode/mcp.json` (VS Code Copilot / MCP Extensions)
-- `opencode.json` (OpenCode Agent)
-- `mcp_config.json` (Template de referência)
+Ou crie `.env.mcp` e use `memoria-viva configure`:
 
----
-
-## 💻 4. Configuração Manual por IDE
-
-Caso prefira configurar manualmente, utilize a estrutura abaixo substituindo as credenciais:
-
-### URL de Conexão MySQL:
-`mysql://<USUARIO>:<SENHA_ENCODADA>@<HOST>:<PORTA>/<DATABASE>`
-
-> ⚠️ Se a sua senha possuir caracteres especiais (`@`, `#`, `$`, `/`, `:`), ela deve ser codificada com `encodeURIComponent()`. Exemplo: `P@ssword` vira `P%40ssword`.
-
-#### A. Claude Code / CLI (`.mcp.json`)
-```json
-{
-  "mcpServers": {
-    "mysql": {
-      "command": "npx",
-      "args": [
-        "-y",
-        "@berthojoris/mcp-mysql-server",
-        "mysql://root:sua_senha@127.0.0.1:3306/seu_banco"
-      ]
-    }
-  }
-}
+```env
+MYSQL_HOST=127.0.0.1
+MYSQL_PORT=3306
+MYSQL_DATABASE=seu_banco
+MYSQL_USER=leitura_mcp
+MYSQL_PASSWORD=troque_esta_senha
+MYSQL_CHARSET=utf8mb4
 ```
 
-#### B. Cursor IDE (`.cursor/mcp.json`)
-```json
-{
-  "mcpServers": {
-    "mysql": {
-      "command": "npx",
-      "args": [
-        "-y",
-        "@berthojoris/mcp-mysql-server",
-        "mysql://root:sua_senha@127.0.0.1:3306/seu_banco"
-      ]
-    }
-  }
-}
-```
+Use uma conta de menor privilégio adequada às operações necessárias. Não use credencial administrativa por conveniência.
 
-#### C. OpenCode (`opencode.json`)
-```json
-{
-  "mcpServers": {
-    "mysql": {
-      "command": "npx",
-      "args": [
-        "-y",
-        "@berthojoris/mcp-mysql-server",
-        "mysql://root:sua_senha@127.0.0.1:3306/seu_banco"
-      ]
-    }
-  }
-}
-```
+## O que é gravado
 
----
+- `.env.mcp`: credenciais locais, com permissão restrita quando o sistema suporta.
+- `tools/memoria-viva-mcp.js`: runner que lê as credenciais em tempo de execução.
+- Arquivos MCP das IDEs: comando e caminho do runner, sem usuário ou senha.
+- O runner inicia `@berthojoris/mcp-mysql-server@1.43.2` com permissões `list,read,utility`.
+- `.gitignore`: entradas para o env e configurações MCP locais.
 
-## 🧪 5. Ferramentas Disponíveis para a IA (MCP Tools)
+Configurações JSON existentes são mescladas. Se um JSON estiver inválido, o comando falha e preserva o arquivo. A configuração global só ocorre com `--global`.
 
-Após a conexão, a IA terá acesso às seguintes ferramentas nativas:
+## Limite de segurança
 
-| Ferramenta | Descrição |
-|------------|-----------|
-| `list_tables` | Lista todas as tabelas presentes no banco de dados |
-| `read_table_schema` | Lê os tipos, colunas, chaves e índices de uma tabela |
-| `run_select_query` | Executa consultas `SELECT` de leitura auditadas |
-| `get_database_summary` | Retorna o resumo geral das tabelas e volumes |
-| `search_schema` | Busca colunas e tabelas por palavra-chave |
-| `analyze_query` | Analisa a performance de uma query (`EXPLAIN`) |
+A senha não é persistida nos JSONs nem nos argumentos. O runner a repassa ao processo-filho por ambiente; proteja a conta local e use uma credencial limitada/rotacionável.
 
----
+As ferramentas disponibilizadas dependem da versão e configuração do servidor MCP. Confirme as capacidades expostas antes de permitir consultas além de leitura.
 
-## 🚨 6. Solução de Problemas Comuns
+## Diagnóstico
 
-### 1. `ER_ACCESS_DENIED_ERROR` / Senha Inválida:
-- Verifique se a senha no `.env.mcp` está correta.
-- Se a senha tiver caracteres especiais, certifique-se de que foram escapados via URL Encode na connection string.
-
-### 2. `ECONNREFUSED` / `EHOSTUNREACH`:
-- Verifique se o serviço MySQL está rodando (`systemctl status mysql` ou serviços do Windows).
-- Certifique-se de que a porta `3306` está liberada no firewall local.
-
-### 3. IDE não reconhece as ferramentas MCP:
-- Reinicie a IDE após criar/alterar os arquivos `.mcp.json` / `.cursor/mcp.json`.
-- Execute `npx -y @berthojoris/mcp-mysql-server --help` no terminal para verificar se o pacote instala corretamente via NPX.
+- `ER_ACCESS_DENIED_ERROR`: revise usuário, senha, host permitido e privilégios.
+- `ECONNREFUSED`/`EHOSTUNREACH`: confirme serviço, host, porta e firewall.
+- IDE sem ferramentas: reinicie a IDE e inspecione o log do runner; não coloque a senha manualmente no JSON.

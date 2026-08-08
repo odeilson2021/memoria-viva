@@ -1,64 +1,47 @@
-# 📋 DIÁRIO DE BORDO — HANDOFF & MEMORY LOG
+# HANDOFF ATUAL — ESTADO E EVIDÊNCIAS
 
-> **Memória Viva — Registro incremental de todas as sessões.**
-> Todo agente que concluir uma tarefa DEVE registrar aqui o que fez,
-> quais arquivos alterou e quais dependências existem para o próximo agente.
+> Memória incremental entre sessões. O agente acrescenta registros; `memoria-viva sync` atualiza apenas o checklist delimitado e nunca fabrica trabalho realizado.
 
----
+## Estado funcional confirmado
 
-## 🚦 Status Geral do Projeto
+- **Base/revisão:** *(registrar commit ou estado do worktree quando relevante)*
+- **Funciona:** *(somente fatos verificados)*
+- **Falha ou risco conhecido:** *(somente fatos reproduzidos)*
+- **Próximo passo diretamente relacionado:** *(se existir)*
 
-| Item | Status | Responsável | Última Atualização |
-|------|--------|-------------|-------------------|
-| Memória Viva instalada | ✅ Concluído | Instalador | *(data)* |
-| Contexto do projeto preenchido | ⏳ Pendente | Próximo agente | — |
-| Regras de negócio mapeadas | ⏳ Pendente | Próximo agente | — |
-| Mapeamento de rotas | ⏳ Pendente | Próximo agente | — |
-| Mapeamento de tabelas (MCP) | ⏳ Pendente | Próximo agente | — |
+## Registro de sessões — mais recente primeiro
 
----
+### *(data)* — Inicialização da Memória Viva
 
-## 📌 INSTRUÇÃO PARA O PRIMEIRO AGENTE
+- **Objetivo:** criar o snapshot e os pontos de entrada dos agentes.
+- **Escopo fora da tarefa:** regras de negócio ainda não confirmadas.
+- **Resultado:** estrutura inicial criada; consulte `.agent/memory.json`.
+- **Causa-raiz/evidência:** não se aplica à inicialização.
+- **Arquivos alterados:** gerados pelo `memoria-viva init`.
+- **Validações:** registrar comandos e resultados reais nas próximas sessões.
+- **Pendências/limitações:** completar regras confirmadas conforme o projeto evoluir.
 
-> Ao iniciar o primeiro chat após a instalação da Memória Viva:
+## Formato obrigatório para novos registros
 
-1. Leia todo o código em `app/`, `routes/`, `database/`, `config/`
-2. Atualize `docs/ai/CONTEXTO_ATUAL.md` com:
-   - Stack e versões reais
-   - Todas as tabelas do banco (use MCP: `list_tables`)
-   - Todas as rotas registradas por módulo em `routes/web/` e `routes/api/v1/`
-   - Estrutura de pastas real seguindo o padrão Memória Viva
-3. Atualize `docs/ai/MODULOS_E_REGRAS.md` com as regras de negócio reais
-4. Registre aqui neste arquivo o que foi feito
-5. Siga todas as regras em `.agent/rules.md`
+```markdown
+### YYYY-MM-DD HH:mm — Objetivo curto
+- Objetivo e fora de escopo:
+- Sintoma/reprodução (para bugs):
+- Causa-raiz e evidência:
+- Alterações e contratos preservados:
+- Arquivos:
+- Validações: comando — passou/falhou/não executado (motivo)
+- Riscos, limitações e pendências diretamente relacionadas:
+```
 
----
+## Checklist de conclusão
 
-## 📝 Registro de Sessões (Mais Recente Primeiro)
+<!-- MEMORIA_VIVA:STACK_CHECKLIST:START -->
+<!-- Atualizado automaticamente conforme comandos declarados no projeto. -->
+<!-- MEMORIA_VIVA:STACK_CHECKLIST:END -->
 
-> *(Formato obrigatório para cada registro)*
-
-### 🗓️ YYYY-MM-DD — Título da Sessão
-- **Agente:** *(Cursor, Claude, Gemini, OpenCode, etc.)*
-- **O que foi feito:**
-  - *(listar alterações realizadas)*
-- **Arquivos criados/alterados:**
-  - *(listar arquivos com caminhos completos)*
-- **Tabelas afetadas:**
-  - *(listar tabelas se houve migration ou alteração de schema)*
-- **⚠️ Alertas para o próximo agente:**
-  - *(listar dependências, riscos ou tarefas pendentes)*
-
----
-
-## ✅ Checklist Pré-Deploy (Executar Antes de Todo `git push`)
-
-<!-- STACK_CHECKLIST -->
-- [ ] Sintaxe PHP validada (`php -l`)
-- [ ] `composer analyse` (PHPStan) sem erros
-- [ ] `vendor/bin/phpunit` — todos os testes passaram
-<!-- /STACK_CHECKLIST -->
-- [ ] `docs/ai/CONTEXTO_ATUAL.md` atualizado (se houve mudança de rota ou banco)
-- [ ] `docs/ai/HANDOFF_ATUAL.md` atualizado com registro da sessão
-- [ ] Commit com mensagem clara: `"[tipo]: mensagem objetiva"`
-- [ ] `git push origin main` executado → CI/CD disparado
+- [ ] O pedido e o fora de escopo foram respeitados
+- [ ] A causa foi comprovada antes da correção (quando era bug)
+- [ ] Teste de regressão cobre a falha (quando aplicável)
+- [ ] Nenhum teste não executado foi descrito como sucesso
+- [ ] Este handoff foi atualizado sem apagar o histórico

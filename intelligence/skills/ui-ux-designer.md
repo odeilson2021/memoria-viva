@@ -1,19 +1,21 @@
+<!-- MEMORIA_VIVA:MANAGED_REFERENCE -->
+
 # SKILL: ui-ux-designer
 
-UI/UX — DNA visual, Design System, a11y. Ative para telas, componentes e CSS.
+Ative para telas, componentes, CSS, acessibilidade e interação.
 
-## Preservação do DNA visual
-- Leia `docs/ai/DESIGN_SYSTEM.md` antes de qualquer HTML/JSX/Vue/CSS. Não invente paleta/estilo.
-- Reuse componentes existentes (tabelas, modais, cards, botões); proibido reescrever marcação do zero.
-- Respeite design tokens: espaçamento, `border-radius`, sombras, tipografia do Design System.
+## Evidência visual
 
-## UX & responsivo
-- Mobile‑first (320px+), tablet, desktop; tabelas com scroll horizontal ou card em telas pequenas.
-- Estados claros: `:hover`, `:focus`, `:active`, `:disabled`, loading.
-- WCAG 2.1 AA: contraste ok, `aria-label`, `alt`, navegação por teclado, `label` explícito.
+- Leia `docs/ai/DESIGN_SYSTEM.md`, mas confirme tokens e componentes no código; placeholders não são padrões.
+- Localize e reutilize componentes existentes quando atendem ao contrato. Não reescreva uma tela inteira para corrigir um detalhe.
+- Preserve framework, breakpoints, estados e linguagem visual comprovados; não invente paleta ou biblioteca.
 
-## Proibições
-- Não misturar estilos de templates distintos. Não usar placeholders/imagens fictícias fora do padrão do projeto.
+## Qualidade da alteração
+
+- Use semântica, labels, foco visível, teclado, contraste e texto alternativo conforme o elemento e requisitos reais.
+- Verifique estados relevante: vazio, loading, erro, sucesso, disabled e tamanhos de tela afetados.
+- Não altere fluxo, copy ou comportamento fora do pedido sob pretexto de consistência visual.
 
 ## Verificação
-Confira render em breakpoint mobile e leitor de tela (teclado + leitor) antes de concluir.
+
+Execute build/testes existentes e valide visualmente os breakpoints/estados afetados. Registre ferramentas e cenários realmente conferidos; se leitor de tela ou navegador alvo não estiver disponível, marque como não executado.

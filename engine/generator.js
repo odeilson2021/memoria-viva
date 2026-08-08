@@ -2,120 +2,211 @@
 
 const fs = require('fs-extra');
 const path = require('path');
-const chalk = require('chalk');
+const crypto = require('crypto');
+
+const MemoryState = require('./memory-state');
+const ProjectAnalyzer = require('./analyzer');
+const KnowledgeGraph = require('./graph');
+
+const MANAGED_MARKERS = {
+    coreRules: 'CORE_RULES',
+    stackRules: 'STACK_RULES',
+    snapshot: 'SNAPSHOT',
+    modules: 'MODULOS_DETECTADOS',
+    checklist: 'STACK_CHECKLIST',
+    design: 'DESIGN_EVIDENCE',
+    bootstrap: 'BOOTSTRAP'
+};
 
 /**
- * Motor Injetor de Contexto e Governança no Projeto Alvo
- * Adapta os guardrails, cérebro técnico e templates com base no DNA do projeto.
+ * Gera a memória do projeto sem substituir conteúdo mantido pelo time.
+ * Somente blocos delimitados por MEMORIA_VIVA:* são atualizados no sync.
  */
 class ContextGenerator {
     constructor(projectDNA, options = {}) {
         this.dna = projectDNA;
-        this.options = options; // { dryRun: boolean, silent: boolean }
+        this.options = { dryRun: false, silent: false, ...options };
         this.globalRoot = path.resolve(__dirname, '..');
         this.templatesDir = path.join(this.globalRoot, 'templates');
+        this._preflightComplete = false;
+        this._previousState = null;
+        this._migrationResults = [];
     }
 
     async generate() {
-        const root = this.dna.root;
-        const createdFiles = [];
-        const updatedFiles = [];
-        const skippedFiles = [];
+        await this._ensurePreflight();
+        const results = [];
 
-        // 1. Assegurar diretórios no projeto alvo
-        const targetDirs = [
-            path.join(root, '.agent'),
-            path.join(root, 'docs', 'ai'),
-            path.join(root, '.github', 'workflows')
-        ];
-
-        for (const dir of targetDirs) {
-            if (!this.options.dryRun) {
-                await fs.ensureDir(dir);
-            }
+        results.push(await this._generateRulesFile());
+        results.push(await this._generateContextFile());
+        results.push(await this._generateModulesFile());
+        results.push(await this._generateHandoffFile());
+        results.push(await this._generateDesignSystemFile());
+        results.push(...await this._syncSkills());
+        results.push(...await this._syncManagedReference(
+            path.join(this.templatesDir, 'BRIEFING.md'),
+            '.agent/BRIEFING.md'
+        ));
+        results.push(...await this._syncManagedReference(
+            path.join(this.globalRoot, 'intelligence', 'skills', 'SKILLS.md'),
+            '.agent/SKILLS.md'
+        ));
+        results.push(...await this._syncManagedReference(
+            path.join(this.globalRoot, 'intelligence', 'PROMPT_ENGINE.md'),
+            '.agent/PROMPT_ENGINE.md'
+        ));
+        results.push(await this._ensureAgentGitignore());
+        results.push(...await this._generateAgentEntrypoints());
+        results.push(...await this._generateGraphArtifacts());
+        if (this._migrationResults.length) {
+            results.unshift(...this._migrationResults);
+            this._migrationResults = [];
         }
 
-        // 2. Processar .agent/rules.md (Guardrails Invioláveis Adaptados)
-        const rulesResult = await this._generateRulesFile();
-        this._trackResult(rulesResult, createdFiles, updatedFiles, skippedFiles);
-
-        // 3. Processar docs/ai/CONTEXTO_ATUAL.md (Cérebro Técnico Vivo)
-        const contextResult = await this._generateContextFile();
-        this._trackResult(contextResult, createdFiles, updatedFiles, skippedFiles);
-
-        // 4. Processar docs/ai/MODULOS_E_REGRAS.md (Módulos de Negócio)
-        const modulesResult = await this._generateModulesFile();
-        this._trackResult(modulesResult, createdFiles, updatedFiles, skippedFiles);
-
-        // 5. Processar docs/ai/HANDOFF_ATUAL.md (Handoff e Audit Log)
-        const handoffResult = await this._generateHandoffFile();
-        this._trackResult(handoffResult, createdFiles, updatedFiles, skippedFiles);
-
-        // 6. Processar docs/ai/DESIGN_SYSTEM.md (DNA Visual)
-        const designResult = await this._generateDesignSystemFile();
-        this._trackResult(designResult, createdFiles, updatedFiles, skippedFiles);
-
-        // 6.1 Copiar skills de IA para o projeto alvo (.agent/skills/) + índice
-        const skillsResult = await this._copySkills();
-        this._trackResult(skillsResult, createdFiles, updatedFiles, skippedFiles);
-
-        // 6.2 Copiar Briefing e índice de Skills (contexto enxuto)
-        const briefingSrc = path.join(this.templatesDir, 'BRIEFING.md');
-        if (await fs.pathExists(briefingSrc)) {
-            const r = await this._copyTemplateIfMissing('BRIEFING.md', '.agent/BRIEFING.md');
-            this._trackResult(r, createdFiles, updatedFiles, skippedFiles);
-        }
-        const skillsIdxSrc = path.join(this.globalRoot, 'intelligence', 'skills', 'SKILLS.md');
-        if (await fs.pathExists(skillsIdxSrc)) {
-            const dstSkills = path.join(this.dna.root, '.agent', 'SKILLS.md');
-            if (!await fs.pathExists(dstSkills)) {
-                if (!this.options.dryRun) await fs.copy(skillsIdxSrc, dstSkills);
-                this._trackResult({ status: 'created', file: '.agent/SKILLS.md' }, createdFiles, updatedFiles, skippedFiles);
-            } else {
-                this._trackResult({ status: 'skipped', file: '.agent/SKILLS.md' }, createdFiles, updatedFiles, skippedFiles);
-            }
-        }
-
-        // 7. Processar .github/workflows/deploy.yml (Workflow CI/CD)
-        const deployResult = await this._copyTemplateIfMissing(this._deployTemplate(), '.github/workflows/deploy.yml');
-        this._trackResult(deployResult, createdFiles, updatedFiles, skippedFiles);
-
-        return { createdFiles, updatedFiles, skippedFiles };
+        this._generated = true;
+        return this._summarize(results.filter(Boolean));
     }
 
-    _trackResult(result, created, updated, skipped) {
-        if (result.status === 'created') created.push(result.file);
-        else if (result.status === 'updated') updated.push(result.file);
-        else if (result.status === 'skipped') skipped.push(result.file);
+    _summarize(results) {
+        const summary = {
+            createdFiles: [],
+            updatedFiles: [],
+            skippedFiles: [],
+            plannedFiles: [],
+            results
+        };
+
+        for (const result of results) {
+            if (result.planned) summary.plannedFiles.push(result.file);
+            else if (result.status === 'created') summary.createdFiles.push(result.file);
+            else if (result.status === 'updated') summary.updatedFiles.push(result.file);
+            else summary.skippedFiles.push(result.file);
+        }
+
+        return summary;
+    }
+
+    _relative(targetPath) {
+        return path.relative(this.dna.root, targetPath).replace(/\\/g, '/');
+    }
+
+    async _writeFileIfChanged(targetPath, content, expectedPrevious = undefined) {
+        const exists = await fs.pathExists(targetPath);
+        const previous = exists ? await fs.readFile(targetPath, 'utf8') : null;
+        const file = this._relative(targetPath);
+
+        if (expectedPrevious !== undefined && previous !== expectedPrevious) {
+            throw new Error(`Conflito de escrita em ${file}: o arquivo mudou durante a sincronização; nenhuma sobrescrita foi feita.`);
+        }
+
+        if (previous === content) return { status: 'skipped', file };
+        if (this.options.dryRun) {
+            return { status: exists ? 'updated' : 'created', file, planned: true };
+        }
+
+        await fs.ensureDir(path.dirname(targetPath));
+        const suffix = crypto.randomBytes(6).toString('hex');
+        const temporaryPath = `${targetPath}.${process.pid}.${suffix}.tmp`;
+        try {
+            await fs.writeFile(temporaryPath, content, 'utf8');
+            const latestExists = await fs.pathExists(targetPath);
+            const latest = latestExists ? await fs.readFile(targetPath, 'utf8') : null;
+            if (latest !== previous) {
+                throw new Error(`Conflito de escrita em ${file}: o arquivo mudou durante a sincronização; nenhuma sobrescrita foi feita.`);
+            }
+            try {
+                await fs.rename(temporaryPath, targetPath);
+            } catch (error) {
+                if (!['EEXIST', 'EPERM'].includes(error.code)) throw error;
+                await this._replaceWithBackup(temporaryPath, targetPath);
+            }
+        } finally {
+            await fs.remove(temporaryPath).catch(() => {});
+        }
+
+        return { status: exists ? 'updated' : 'created', file };
+    }
+
+    async _replaceWithBackup(temporaryPath, targetPath) {
+        const backupPath = `${targetPath}.${process.pid}.${crypto.randomBytes(6).toString('hex')}.mv-backup`;
+        let movedOriginal = false;
+        try {
+            if (await fs.pathExists(targetPath)) {
+                await fs.rename(targetPath, backupPath);
+                movedOriginal = true;
+            }
+            await fs.rename(temporaryPath, targetPath);
+            if (movedOriginal) await fs.remove(backupPath);
+        } catch (error) {
+            if (movedOriginal && !await fs.pathExists(targetPath) && await fs.pathExists(backupPath)) {
+                await fs.rename(backupPath, targetPath).catch(() => {});
+            }
+            throw error;
+        }
+    }
+
+    _marker(id, edge) {
+        return `<!-- MEMORIA_VIVA:${id}:${edge} -->`;
+    }
+
+    _managedBlock(id, body) {
+        return `${this._marker(id, 'START')}\n${body.trim()}\n${this._marker(id, 'END')}`;
+    }
+
+    _applyManagedBlock(content, id, body, legacyHeading) {
+        const start = this._marker(id, 'START');
+        const end = this._marker(id, 'END');
+        const block = this._managedBlock(id, body);
+        const startCount = content.split(start).length - 1;
+        const endCount = content.split(end).length - 1;
+        if (startCount === 0 && endCount === 0) {
+            const heading = legacyHeading ? `\n\n---\n\n## ${legacyHeading}\n\n` : '\n\n';
+            return `${content.trimEnd()}${heading}${block}\n`;
+        }
+        if (startCount !== 1 || endCount !== 1) {
+            throw new Error(`Bloco gerenciado ${id} inválido: esperado exatamente um marcador START e um END.`);
+        }
+        const startIndex = content.indexOf(start);
+        const endIndex = content.indexOf(end);
+        if (startIndex >= endIndex) {
+            throw new Error(`Bloco gerenciado ${id} inválido: marcadores fora de ordem.`);
+        }
+        return `${content.slice(0, startIndex)}${block}${content.slice(endIndex + end.length)}`;
+    }
+
+    _adoptLegacyMarkers(content, legacyStart, legacyEnd, id) {
+        const startCount = content.split(legacyStart).length - 1;
+        const endCount = content.split(legacyEnd).length - 1;
+        if (startCount === 0 && endCount === 0) return content;
+        if (startCount !== 1 || endCount !== 1 || content.indexOf(legacyStart) >= content.indexOf(legacyEnd)) {
+            throw new Error(`Bloco legado ${id} inválido; nenhuma migração foi feita.`);
+        }
+        const startIndex = content.indexOf(legacyStart);
+        const endIndex = content.indexOf(legacyEnd) + legacyEnd.length;
+        return `${content.slice(0, startIndex)}${this._managedBlock(id, 'Atualização pendente.')}${content.slice(endIndex)}`;
+    }
+
+    _escapeRegExp(value) {
+        return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    }
+
+    _md(value) {
+        return String(value ?? '—').replace(/\|/g, '\\|').replace(/[\r\n]+/g, ' ');
     }
 
     async _generateRulesFile() {
-        const dstPath = path.join(this.dna.root, '.agent', 'rules.md');
-        const exists = await fs.pathExists(dstPath);
-
-        let content = await fs.readFile(path.join(this.templatesDir, 'rules.md'), 'utf8');
-
-        // Personalização de acordo com o DNA do Projeto
-        let stackRules = '';
-        if (this.dna.language.includes('PHP')) {
-            stackRules = `
-- **PHP Standard:** PHP 8.2+ Strict Types (\`declare(strict_types=1);\`).
-- **Arquitetura Backend:** ${this.dna.framework.includes('Slim') ? 'Single Action Controllers (Invokable Classes) com PSR-11 PHP-DI.' : 'Controllers desacoplados e Service Layer.'}
-- **Strict Repositories:** Toda interação com banco de dados DEVE passar por Repositórios tipados (${this.dna.structure.hasRepositories ? 'Infrastructure/Persistence ou Repositories/' : 'Repositories/'}). Proibido PDO cru ou SQL solto.`;
-        } else if (this.dna.language.includes('Node')) {
-            stackRules = `
-- **Node.js Standard:** TypeScript estrito (\`strict: true\`); Async/Await obrigatório em toda operação de I/O.
-- **Arquitetura (espelha o fluxo PHP):** Controllers com responsabilidade única em \`app/Controllers/\` (Single Action ou resource) + Repository Pattern via Lucid/\`app/Repositories/\`.
-- **Injeção de Dependência:** Usar o IoC Container nativo do AdonisJS (bindings em \`providers/\`); proibido instanciar dependências manualmente ou usar singletons globais.
-- **Frontend Unificado:** Views server-rendered com Edge (\`resources/views/\`) ou Inertia; backend e frontend no mesmo app, como no Laravel.
-- **ORM / Repositórios:** Lucid ORM (\`@adonisjs/lucid\`); proibido SQL cru concatenado. Toda query passa por Model/Repository tipado.
-- **Sessões Resilientes:** Driver de sessão persistente (MySQL \`auth_sessions\`) via \`@adonisjs/session\`; logins sobrevivem a restart/deploy.
-- **Tratamento de Erro:** Nenhuma rota estoura 500 sem tratamento; usar o Exception Handler do AdonisJS.`;
-        } else {
-            stackRules = `
-- **Language Standard:** ${this.dna.language}. Manter tipagem estrita e padrões limpos.
-- **Abstração de Banco:** Utilizar Repositórios ou ORM (\`${this.dna.orm}\`). Proibido SQL concatenado.`;
-        }
+        const targetPath = path.join(this.dna.root, '.agent', 'rules.md');
+        const exists = await fs.pathExists(targetPath);
+        const previous = exists ? await fs.readFile(targetPath, 'utf8') : null;
+        let content = exists
+            ? await this._migrateKnownLegacyDocument(
+                previous,
+                targetPath,
+                'rules.md',
+                MANAGED_MARKERS.coreRules,
+                ['auth_sessions', 'Admin Master', 'docs/ai/BRIEFING.md']
+            )
+            : await fs.readFile(path.join(this.templatesDir, 'rules.md'), 'utf8');
 
         content = content
             .replace(/\{\{LANG\}\}/g, this.dna.language)
@@ -124,328 +215,552 @@ class ContextGenerator {
             .replace(/\{\{ORM\}\}/g, this.dna.orm)
             .replace(/\{\{UI\}\}/g, this.dna.uiFramework);
 
-        if (stackRules) {
-            content += `\n---\n\n## 🧩 ARQUITETURA DA STACK DETECTADA (${this.dna.framework})\n${stackRules}\n`;
-        }
+        content = this._applyManagedBlock(
+            content,
+            MANAGED_MARKERS.coreRules,
+            this._buildCoreRules(),
+            'PROTOCOLO OPERACIONAL ATUAL (gerenciado pelo Memória Viva)'
+        );
+        content = this._applyManagedBlock(
+            content,
+            MANAGED_MARKERS.stackRules,
+            this._buildStackRules(),
+            'FATOS DA STACK DETECTADA (gerenciado pelo Memória Viva)'
+        );
 
-        if (exists) {
-            return { status: 'skipped', file: '.agent/rules.md' };
-        }
+        return this._writeFileIfChanged(targetPath, content, previous);
+    }
 
-        if (!this.options.dryRun) {
-            await fs.writeFile(dstPath, content, 'utf8');
-        }
-        return { status: 'created', file: '.agent/rules.md' };
+    _buildCoreRules() {
+        return `### 1. Recuperação de contexto
+
+1. Comece por \`.agent/memory.json\`; ele é o snapshot automático compacto.
+2. Leia \`docs/ai/HANDOFF_ATUAL.md\` e \`docs/ai/MODULOS_E_REGRAS.md\`; consulte \`docs/ai/DESIGN_SYSTEM.md\` somente para tarefas de interface.
+3. Execute \`memoria-viva check\`. Se indicar divergência, execute \`memoria-viva sync\` antes de confiar no snapshot.
+4. Código, testes, manifests e schema real têm precedência sobre a documentação. Divergência é um defeito de memória a registrar, nunca licença para inventar fatos.
+
+### 2. Execução profissional e escopo
+
+- Resolva somente o objetivo solicitado. Não crie funcionalidades, refatorações ou tarefas paralelas sem necessidade comprovada.
+- Para bugs: reproduza o sintoma, estabeleça o baseline, trace a execução/dados, prove a causa-raiz, aplique a menor correção segura e adicione regressão.
+- Antes de criar ou substituir algo, busque a implementação e os consumidores existentes. Preserve contratos, comportamento válido e histórico do usuário.
+- Não apague nem reescreva código funcional para contornar uma investigação. Refatoração ampla exige justificativa ligada ao problema e cobertura proporcional.
+- Faça suposições reversíveis quando forem seguras; pergunte apenas se uma escolha material mudar resultado, risco ou escopo.
+
+### 3. Integridade da conclusão
+
+- Execute as validações relevantes disponíveis no projeto. Migração, deploy, push, escrita em produção e outras ações externas exigem autorização explícita.
+- Nunca declare sucesso para teste não executado, saída não conferida ou falha mascarada. Relate cada comando como \`passou\`, \`falhou\` ou \`não executado\`, com o motivo.
+- Só marque concluído quando a causa comprovada estiver corrigida e o critério de pronto estiver atendido. Pendência real permanece explícita.
+- Ao encerrar uma mudança, atualize o handoff sem apagar registros: objetivo, causa-raiz/evidência, arquivos, testes/resultados, riscos e pendências diretamente relacionadas.`;
+    }
+
+    _buildStackRules() {
+        const evidence = (this.dna.detectedFiles || []).length
+            ? this.dna.detectedFiles.map(file => `\`${file}\``).join(', ')
+            : 'nenhum manifest reconhecido';
+        const commands = (this.dna.validationCommands || []).length
+            ? this.dna.validationCommands.map(command => `\`${command}\``).join(', ')
+            : 'nenhum comando inferido; descubra os comandos existentes antes de validar';
+
+        return `- **Linguagem primária:** ${this._md(this.dna.language)}
+- **Linguagens detectadas:** ${this._md((this.dna.languages || []).join(', ') || this.dna.language)}
+- **Framework:** ${this._md(this.dna.framework)}
+- **Banco indicado por dependências/configuração:** ${this._md(this.dna.database)}
+- **ORM/abstração detectada:** ${this._md(this.dna.orm)}
+- **UI detectada:** ${this._md(this.dna.uiFramework)}
+- **Evidências:** ${evidence}
+- **Validações declaradas:** ${commands}
+
+Estes são fatos detectados, não uma arquitetura a impor. Não introduza framework, padrão arquitetural, mecanismo de sessão, módulo, papel ou regra de negócio que não esteja comprovado no projeto.`;
     }
 
     async _generateContextFile() {
-        const dstPath = path.join(this.dna.root, 'docs', 'ai', 'CONTEXTO_ATUAL.md');
-        const exists = await fs.pathExists(dstPath);
-
-        if (exists) {
-            return { status: 'skipped', file: 'docs/ai/CONTEXTO_ATUAL.md' };
+        const targetPath = path.join(this.dna.root, 'docs', 'ai', 'CONTEXTO_ATUAL.md');
+        const exists = await fs.pathExists(targetPath);
+        const previous = exists ? await fs.readFile(targetPath, 'utf8') : null;
+        let content = exists
+            ? await this._migrateKnownLegacyDocument(
+                previous,
+                targetPath,
+                'CONTEXTO_ATUAL.md',
+                MANAGED_MARKERS.snapshot,
+                ['auth_sessions', 'Admin / Master', '24 horas']
+            )
+            : await fs.readFile(path.join(this.templatesDir, 'CONTEXTO_ATUAL.md'), 'utf8');
+        if (!exists || content !== previous) {
+            content = content.replace(/\*\(data\)\*/g, new Date().toISOString().slice(0, 10));
         }
 
-        let content = await fs.readFile(path.join(this.templatesDir, 'CONTEXTO_ATUAL.md'), 'utf8');
+        content = this._applyManagedBlock(
+            content,
+            MANAGED_MARKERS.snapshot,
+            this._buildSnapshotMarkdown(),
+            'SNAPSHOT AUTOMÁTICO ATUAL'
+        );
 
-        // Preencher a tabela de stack dinamicamente
-        const tooling = this._getStackTooling();
-        content = content
-            .replace('PHP 8.2+ Strict Types', this.dna.language)
-            .replace('*(preencher: Slim 4, Laravel 10+, etc.)*', this.dna.framework)
-            .replace('MySQL / MariaDB (`utf8mb4_unicode_ci`)', this.dna.database)
-            .replace('*(preencher: Doctrine, Eloquent, Phinx)*', this.dna.orm)
-            .replace('*(preencher: PHP-DI, Laravel Container)*', tooling.di)
-            .replace('Monolog', tooling.logs)
-            .replace('PHPUnit', tooling.testes);
-
-        if (!this.options.dryRun) {
-            await fs.writeFile(dstPath, content, 'utf8');
-        }
-        return { status: 'created', file: 'docs/ai/CONTEXTO_ATUAL.md' };
+        return this._writeFileIfChanged(targetPath, content, previous);
     }
 
-    async _generateModulesFile() {
-        const dstPath = path.join(this.dna.root, 'docs', 'ai', 'MODULOS_E_REGRAS.md');
-        const exists = await fs.pathExists(dstPath);
+    _buildSnapshotMarkdown() {
+        const snapshot = MemoryState.normalizeDNA(this.dna);
+        const currentFingerprint = MemoryState.fingerprint(snapshot);
+        const structureRows = Object.entries(this.dna.structure || {})
+            .map(([name, present]) => `| ${this._md(name)} | ${present ? 'sim' : 'não'} |`)
+            .join('\n') || '| — | nenhuma estrutura reconhecida |';
+        const routes = this._buildRoutesTable(this.dna.routes || []);
+        const tables = this._buildTablesTable(this.dna.tables || []);
+        const inventory = this.dna.inventory || {};
 
-        if (exists) {
-            return { status: 'skipped', file: 'docs/ai/MODULOS_E_REGRAS.md' };
-        }
+        return `> Gerado por \`memoria-viva sync\`. Somente este bloco é substituído.
+> Fingerprint: \`${currentFingerprint}\`. Exemplos ou textos manuais sem evidência não prevalecem sobre este snapshot.
 
-        let content = await fs.readFile(path.join(this.templatesDir, 'MODULOS_E_REGRAS.md'), 'utf8');
+### DNA comprovado
 
-        if (!this.options.dryRun) {
-            await fs.writeFile(dstPath, content, 'utf8');
-        }
-        return { status: 'created', file: 'docs/ai/MODULOS_E_REGRAS.md' };
+| Campo | Valor |
+|-------|-------|
+| Projeto | ${this._md(this.dna.projectName)} |
+| Linguagem primária | ${this._md(this.dna.language)} |
+| Linguagens detectadas | ${this._md((this.dna.languages || []).join(', ') || this.dna.language)} |
+| Framework | ${this._md(this.dna.framework)} |
+| Banco indicado | ${this._md(this.dna.database)} |
+| ORM/abstração | ${this._md(this.dna.orm)} |
+| UI | ${this._md(this.dna.uiFramework)} |
+| Arquivos-fonte inventariados | ${inventory.sourceFiles || 0} |
+
+**Evidências de stack:** ${(this.dna.detectedFiles || []).map(file => `\`${file}\``).join(', ') || 'nenhuma'}
+
+**Entradas na raiz:** ${(inventory.topLevelEntries || []).map(entry => `\`${entry}\``).join(', ') || 'nenhuma'}
+
+### Estrutura reconhecida
+
+| Sinal | Detectado |
+|-------|-----------|
+${structureRows}
+
+### Rotas detectadas estaticamente
+
+| Método | Caminho | Módulo inferido | Arquivo |
+|--------|---------|-----------------|---------|
+${routes}
+
+### Tabelas mencionadas em migrations
+
+> Isto não prova o schema atual. Quando houver acesso ao banco, confirme tabelas, colunas e índices na fonte real.
+
+| Tabela mencionada | Fonte |
+|-------------------|-------|
+${tables}`;
     }
 
-    async _generateHandoffFile() {
-        const dstPath = path.join(this.dna.root, 'docs', 'ai', 'HANDOFF_ATUAL.md');
-        const exists = await fs.pathExists(dstPath);
-
-        if (exists) {
-            return { status: 'skipped', file: 'docs/ai/HANDOFF_ATUAL.md' };
-        }
-
-        let content = await fs.readFile(path.join(this.templatesDir, 'HANDOFF_ATUAL.md'), 'utf8');
-
-        const now = new Date().toISOString().split('T')[0];
-        content = content.replace(/\*\(data\)\*/g, now);
-        content = this._applyHandoffChecklist(content);
-
-        if (!this.options.dryRun) {
-            await fs.writeFile(dstPath, content, 'utf8');
-        }
-        return { status: 'created', file: 'docs/ai/HANDOFF_ATUAL.md' };
-    }
-
-    async _generateDesignSystemFile() {
-        const dstPath = path.join(this.dna.root, 'docs', 'ai', 'DESIGN_SYSTEM.md');
-        const exists = await fs.pathExists(dstPath);
-
-        if (exists) {
-            return { status: 'skipped', file: 'docs/ai/DESIGN_SYSTEM.md' };
-        }
-
-        let content = '';
-        const designTemplatePath = path.join(this.templatesDir, 'DESIGN_SYSTEM.md');
-        if (await fs.pathExists(designTemplatePath)) {
-            content = await fs.readFile(designTemplatePath, 'utf8');
-        } else {
-            content = await fs.readFile(path.join(this.globalRoot, 'intelligence', 'design-system', 'DNA_VISUAL_TEMPLATE.md'), 'utf8');
-        }
-
-        content = content.replace('*(ex: Bootstrap 5.3, Tailwind CSS 3.4, HTML Puro + CSS Vanilla)*', this.dna.uiFramework);
-
-        if (!this.options.dryRun) {
-            await fs.writeFile(dstPath, content, 'utf8');
-        }
-        return { status: 'created', file: 'docs/ai/DESIGN_SYSTEM.md' };
-    }
-
-    _deployTemplate() {
-        if (this.dna.language.includes('Node')) return 'deploy-node.yml';
-        return 'deploy.yml';
-    }
-
-    async _copySkills() {
-        const srcDir = path.join(this.globalRoot, 'intelligence', 'skills');
-        if (!await fs.pathExists(srcDir)) {
-            return { status: 'skipped', file: '.agent/skills/' };
-        }
-        const dstDir = path.join(this.dna.root, '.agent', 'skills');
-        if (!this.options.dryRun) {
-            await fs.ensureDir(dstDir);
-        }
-        const files = await fs.readdir(srcDir);
-        let copied = 0;
-        for (const f of files) {
-            if (!f.endsWith('.md')) continue;
-            const dst = path.join(dstDir, f);
-            if (await fs.pathExists(dst)) continue;
-            if (!this.options.dryRun) {
-                await fs.copy(path.join(srcDir, f), dst);
-            }
-            copied++;
-        }
-        return { status: copied ? 'created' : 'skipped', file: '.agent/skills/' };
-    }
-
-    async _copyTemplateIfMissing(templateName, relDstPath) {
-        const dstPath = path.join(this.dna.root, relDstPath);
-        const exists = await fs.pathExists(dstPath);
-
-        if (exists) {
-            return { status: 'skipped', file: relDstPath };
-        }
-
-        const srcPath = path.join(this.templatesDir, templateName);
-        if (await fs.pathExists(srcPath)) {
-            if (!this.options.dryRun) {
-                await fs.copy(srcPath, dstPath);
-            }
-            return { status: 'created', file: relDstPath };
-        }
-
-        return { status: 'skipped', file: relDstPath };
-    }
-
-    async syncContext() {
-        return this._syncContext();
-    }
-
-    async _syncContext() {
-        const routes = this.dna.routes || [];
-        const tables = this.dna.tables || [];
-
-        const rotasPath = path.join(this.dna.root, 'docs', 'ai', 'ROTAS_DETECTADAS.md');
-        if (!this.options.dryRun) {
-            await fs.ensureDir(path.dirname(rotasPath));
-            await fs.writeFile(rotasPath, this._buildRotasMarkdown(routes), 'utf8');
-        }
-
-        const ctxPath = path.join(this.dna.root, 'docs', 'ai', 'CONTEXTO_ATUAL.md');
-        if (await fs.pathExists(ctxPath)) {
-            let ctx = await fs.readFile(ctxPath, 'utf8');
-            let changed = false;
-
-            if (ctx.includes('*(preencher)*')) {
-                const table = this._buildRotasTable(routes);
-                if (table) {
-                    const lines = ctx.split('\n');
-                    const idx = lines.findIndex(l => l.includes('*(preencher)*'));
-                    if (idx >= 0) {
-                        lines.splice(idx, 1, ...table.trimEnd().split('\n'));
-                        ctx = lines.join('\n');
-                        changed = true;
-                    }
-                }
-            }
-
-            const newCtx = this._fillContextTables(ctx);
-            if (newCtx !== ctx) {
-                ctx = newCtx;
-                changed = true;
-            }
-
-            if (changed && !this.options.dryRun) {
-                await fs.writeFile(ctxPath, ctx, 'utf8');
-            }
-        }
-
-        const modPath = path.join(this.dna.root, 'docs', 'ai', 'MODULOS_E_REGRAS.md');
-        if (await fs.pathExists(modPath)) {
-            const mod = await fs.readFile(modPath, 'utf8');
-            const newMod = this._fillDetectedModules(mod);
-            if (newMod !== mod && !this.options.dryRun) {
-                await fs.writeFile(modPath, newMod, 'utf8');
-            }
-        }
-
-        const handoffPath = path.join(this.dna.root, 'docs', 'ai', 'HANDOFF_ATUAL.md');
-        if (await fs.pathExists(handoffPath)) {
-            const ho = await fs.readFile(handoffPath, 'utf8');
-            const newHo = this._applyHandoffChecklist(ho);
-            if (newHo !== ho && !this.options.dryRun) {
-                await fs.writeFile(handoffPath, newHo, 'utf8');
-            }
-        }
-
-        return { status: 'updated', file: 'docs/ai/' };
-    }
-
-    _buildRotasTable(routes) {
-        if (!routes.length) return '';
-        return routes.map(r => {
-            const prefix = '/' + (r.path.split('/')[1] || '');
-            return `| ${r.module} | ${prefix} | — | ${r.file} |\n`;
-        }).join('');
-    }
-
-    _buildRotasMarkdown(routes) {
-        const header = `# 🛣️ ROTAS DETECTADAS (auto-sync)
-
-> Gerado por \`memoria-viva sync\`. Confira e complemente em CONTEXTO_ATUAL.md / MODULOS_E_REGRAS.md.
-
-| Método | Caminho | Módulo | Arquivo |
-|--------|--------|--------|---------|
-`;
-        if (!routes.length) {
-            return header + '| — | — | — | nenhuma rota detectada automaticamente |\n';
-        }
-        const rows = routes.map(r => `| ${r.method} | ${r.path} | ${r.module} | ${r.file} |`).join('\n');
-        return header + rows + '\n';
-    }
-
-    _fillContextTables(ctx) {
-        const tables = this.dna.tables || [];
-        if (!ctx.includes('*(use list_tables via MCP para preencher)*')) return ctx;
-        const rows = this._buildTablesTable(tables);
-        if (!rows) return ctx;
-        const lines = ctx.split('\n');
-        const idx = lines.findIndex(l => l.includes('*(use list_tables via MCP para preencher)*'));
-        if (idx >= 0) {
-            lines.splice(idx, 1, ...rows.trimEnd().split('\n'));
-            ctx = lines.join('\n');
-        }
-        return ctx;
+    _buildRoutesTable(routes) {
+        if (!routes.length) return '| — | — | — | nenhuma rota reconhecida estaticamente |';
+        return routes.map(route =>
+            `| ${this._md(route.method)} | ${this._md(route.path)} | ${this._md(route.module)} | ${this._md(route.file)} |`
+        ).join('\n');
     }
 
     _buildTablesTable(tables) {
-        if (!tables.length) return '';
-        return tables.map(t => `| ${t} | — | — |`).join('\n') + '\n';
+        if (!tables.length) return '| — | nenhuma tabela reconhecida nas migrations |';
+        return tables.map(table => `| ${this._md(table)} | migration |`).join('\n');
     }
 
-    _fillDetectedModules(content) {
-        const block = this._buildDetectedModules(this.dna.routes || []);
-        const start = '<!-- MODULOS_DETECTADOS -->';
-        const end = '<!-- /MODULOS_DETECTADOS -->';
-        if (content.includes(start) && content.includes(end)) {
-            const re = new RegExp(start + '[\\s\\S]*?' + end);
-            return content.replace(re, `${start}\n${block}${end}`);
-        }
-        return content;
+    async _generateModulesFile() {
+        const targetPath = path.join(this.dna.root, 'docs', 'ai', 'MODULOS_E_REGRAS.md');
+        const exists = await fs.pathExists(targetPath);
+        const previous = exists ? await fs.readFile(targetPath, 'utf8') : null;
+        let content = exists
+            ? await this._migrateKnownLegacyDocument(
+                previous,
+                targetPath,
+                'MODULOS_E_REGRAS.md',
+                MANAGED_MARKERS.modules,
+                ['auth_sessions', 'store_id', 'Soft Delete']
+            )
+            : await fs.readFile(path.join(this.templatesDir, 'MODULOS_E_REGRAS.md'), 'utf8');
+
+        content = this._adoptLegacyMarkers(
+            content,
+            '<!-- MODULOS_DETECTADOS -->',
+            '<!-- /MODULOS_DETECTADOS -->',
+            MANAGED_MARKERS.modules
+        );
+
+        content = this._applyManagedBlock(
+            content,
+            MANAGED_MARKERS.modules,
+            this._buildDetectedModules(this.dna.routes || []),
+            'MÓDULOS INFERIDOS AUTOMATICAMENTE'
+        );
+        return this._writeFileIfChanged(targetPath, content, previous);
     }
 
     _buildDetectedModules(routes) {
-        if (!routes.length) return '_Nenhum módulo detectado automaticamente._\n';
+        if (!routes.length) {
+            return '_Nenhum módulo foi inferido. Isso não prova que o projeto não possua módulos._';
+        }
+
         const groups = {};
-        for (const r of routes) {
-            (groups[r.module] = groups[r.module] || []).push(r);
+        for (const route of routes) {
+            (groups[route.module] = groups[route.module] || []).push(route);
         }
-        let md = '';
-        for (const [mod, rs] of Object.entries(groups)) {
-            md += `### Módulo: ${mod}\n`;
-            md += `- **Rotas:** ${rs.map(r => `${r.method} ${r.path}`).join(', ')}\n`;
-            md += `- **Arquivos:** ${[...new Set(rs.map(r => r.file))].join(', ')}\n\n`;
-        }
-        return md;
+
+        return Object.keys(groups).sort().map(moduleName => {
+            const moduleRoutes = groups[moduleName];
+            const routeList = moduleRoutes.map(route => `${route.method} ${route.path}`).join(', ');
+            const files = [...new Set(moduleRoutes.map(route => route.file))].join(', ');
+            return `### ${this._md(moduleName)} (inferido)\n\n- **Rotas:** ${this._md(routeList)}\n- **Arquivos:** ${this._md(files)}\n- **Regras de negócio:** não inferidas; registre abaixo somente após confirmação no código/testes.`;
+        }).join('\n\n');
     }
 
-    _applyHandoffChecklist(content) {
-        const checklist = this._getChecklist();
-        return content.replace(
-            /<!-- STACK_CHECKLIST -->[\s\S]*?<!-- \/STACK_CHECKLIST -->/,
-            `<!-- STACK_CHECKLIST -->\n${checklist}\n<!-- /STACK_CHECKLIST -->`
+    async _generateHandoffFile() {
+        const targetPath = path.join(this.dna.root, 'docs', 'ai', 'HANDOFF_ATUAL.md');
+        const exists = await fs.pathExists(targetPath);
+        const previous = exists ? await fs.readFile(targetPath, 'utf8') : null;
+        let content;
+        if (exists) {
+            content = await this._migrateKnownLegacyDocument(
+                previous,
+                targetPath,
+                'HANDOFF_ATUAL.md',
+                MANAGED_MARKERS.checklist,
+                ['list_tables', 'git push origin main', 'docs/ai/CONTEXTO_ATUAL.md']
+            );
+            if (content !== previous) {
+                const legacyRecords = previous.match(/##[^\n]*Registro de Sessões[\s\S]*?(?=##[^\n]*Checklist Pré-Deploy)/i);
+                if (legacyRecords) {
+                    content = `${content.trimEnd()}\n\n<details>\n<summary>Registro legado preservado — não revalidado automaticamente</summary>\n\n${legacyRecords[0].trim()}\n\n</details>\n`;
+                }
+            }
+        } else {
+            content = await fs.readFile(path.join(this.templatesDir, 'HANDOFF_ATUAL.md'), 'utf8');
+        }
+        if (!exists || content !== previous) {
+            content = content.replace(/\*\(data\)\*/g, new Date().toISOString().slice(0, 10));
+        }
+        content = this._adoptLegacyMarkers(
+            content,
+            '<!-- STACK_CHECKLIST -->',
+            '<!-- /STACK_CHECKLIST -->',
+            MANAGED_MARKERS.checklist
         );
+        content = this._applyChecklist(content);
+        return this._writeFileIfChanged(targetPath, content, previous);
     }
 
-    _getChecklist() {
-        const f = this.dna.framework || '';
-        if (f.includes('AdonisJS') || f.includes('Node')) {
-            return [
-                '- [ ] Sintaxe/type-check validado (`tsc --noEmit` ou `node --check`)',
-                '- [ ] Lint sem erros (`npm run lint`)',
-                '- [ ] Testes automatizados (`npm test`) passaram',
-                '- [ ] Migrations aplicadas (`node ace migration:run`)'
-            ].join('\n');
+    _applyChecklist(content) {
+        const commands = this.dna.validationCommands || [];
+        const checklist = commands.length
+            ? commands.map(command => `- [ ] \`${command}\` executado e resultado registrado`).join('\n')
+            : '- [ ] Comandos reais de validação identificados no projeto e resultados registrados';
+        return this._applyManagedBlock(content, MANAGED_MARKERS.checklist, checklist, 'VALIDAÇÕES DETECTADAS');
+    }
+
+    async _generateDesignSystemFile() {
+        const targetPath = path.join(this.dna.root, 'docs', 'ai', 'DESIGN_SYSTEM.md');
+        const exists = await fs.pathExists(targetPath);
+        const previous = exists ? await fs.readFile(targetPath, 'utf8') : null;
+        let content = exists
+            ? await this._migrateKnownLegacyDocument(
+                previous,
+                targetPath,
+                'DESIGN_SYSTEM.md',
+                MANAGED_MARKERS.design,
+                ['#2563EB', '#475569', 'Inter']
+            )
+            : await fs.readFile(path.join(this.templatesDir, 'DESIGN_SYSTEM.md'), 'utf8');
+        content = content.replace(/\{\{UI_FRAMEWORK\}\}/g, this.dna.uiFramework);
+        content = this._applyManagedBlock(
+            content,
+            MANAGED_MARKERS.design,
+            `- **Framework/utilitário detectado:** ${this._md(this.dna.uiFramework)}\n- **Regra:** preserve tokens e componentes comprovados no código; não transforme placeholders em padrão.`,
+            'EVIDÊNCIA AUTOMÁTICA DE UI'
+        );
+        return this._writeFileIfChanged(targetPath, content, previous);
+    }
+
+    async _syncSkills() {
+        const sourceDirectory = path.join(this.globalRoot, 'intelligence', 'skills');
+        if (!await fs.pathExists(sourceDirectory)) {
+            throw new Error(`Diretório de skills ausente no pacote: ${sourceDirectory}`);
         }
-        if (f.includes('PHP')) {
-            return [
-                '- [ ] Sintaxe PHP validada (`php -l`)',
-                '- [ ] Análise estática (`composer analyse` / PHPStan) sem erros',
-                '- [ ] Testes automatizados (`vendor/bin/phpunit`) passaram'
-            ].join('\n');
+
+        const files = (await fs.readdir(sourceDirectory))
+            .filter(file => file.endsWith('.md') && file !== 'SKILLS.md')
+            .sort();
+        const results = [];
+        for (const file of files) {
+            results.push(...await this._syncManagedReference(
+                path.join(sourceDirectory, file),
+                `.agent/skills/${file}`
+            ));
         }
+        return results;
+    }
+
+    async _syncManagedReference(sourcePath, relativeTargetPath) {
+        if (!await fs.pathExists(sourcePath)) {
+            throw new Error(`Referência gerenciada ausente no pacote: ${sourcePath}`);
+        }
+        const referenceMarker = '<!-- MEMORIA_VIVA:MANAGED_REFERENCE -->';
+        const content = await fs.readFile(sourcePath, 'utf8');
+        const sourceMarkerCount = content.split(referenceMarker).length - 1;
+        if (sourceMarkerCount !== 1 || !content.trimStart().startsWith(referenceMarker)) {
+            throw new Error(`Referência gerenciada inválida no pacote: ${sourcePath}`);
+        }
+
+        const targetPath = path.join(this.dna.root, relativeTargetPath);
+        const exists = await fs.pathExists(targetPath);
+        const previous = exists ? await fs.readFile(targetPath, 'utf8') : null;
+        if (previous === content) return [{ status: 'skipped', file: relativeTargetPath }];
+
+        const results = [];
+        if (exists && !this._previousState) {
+            const relativeBackup = relativeTargetPath
+                .replace(/^\.agent\//, '')
+                .replace(/\.md$/i, '');
+            const suffix = crypto.createHash('sha256').update(previous).digest('hex').slice(0, 12);
+            const backupPath = path.join(this.dna.root, '.agent', 'backups', `${relativeBackup}.${suffix}.legacy.md`);
+            results.push(await this._writeFileIfChanged(backupPath, previous));
+        }
+
+        results.push(await this._writeFileIfChanged(targetPath, content, previous));
+        return results;
+    }
+
+    async _ensureAgentGitignore() {
+        const targetPath = path.join(this.dna.root, '.agent', '.gitignore');
+        const exists = await fs.pathExists(targetPath);
+        const previous = exists ? await fs.readFile(targetPath, 'utf8') : '';
+        const entries = ['.sync.lock', '*.tmp', '*.mv-backup', 'backups/'];
+        const existingLines = previous.split(/\r?\n/).map(line => line.trim());
+        const missing = entries.filter(entry => !existingLines.includes(entry));
+        if (!missing.length) return { status: 'skipped', file: '.agent/.gitignore' };
+        const content = `${previous.trimEnd()}${previous.trim() ? '\n\n' : ''}# Arquivos locais/transacionais do Memória Viva\n${missing.join('\n')}\n`;
+        return this._writeFileIfChanged(targetPath, content, exists ? previous : null);
+    }
+
+    async _migrateKnownLegacyDocument(previous, targetPath, templateName, markerId, signatures) {
+        if (!previous || previous.includes(this._marker(markerId, 'START'))
+            || !signatures.every(signature => previous.includes(signature))) {
+            return previous;
+        }
+
+        const relativeTarget = this._relative(targetPath);
+        const suffix = crypto.createHash('sha256').update(previous).digest('hex').slice(0, 12);
+        const backupName = `${path.basename(relativeTarget, path.extname(relativeTarget))}.${suffix}.legacy.md`;
+        const backupPath = path.join(this.dna.root, '.agent', 'backups', 'legacy-docs', backupName);
+        this._migrationResults.push(await this._writeFileIfChanged(backupPath, previous));
+        return fs.readFile(path.join(this.templatesDir, templateName), 'utf8');
+    }
+
+    async _generateAgentEntrypoints() {
+        const bootstrap = this._buildAgentBootstrap();
+        const targets = [
+            { path: 'AGENTS.md', preamble: '# Instruções para agentes\n\n' },
+            { path: 'CLAUDE.md', preamble: '# Instruções para Claude Code\n\n' },
+            { path: '.github/copilot-instructions.md', preamble: '# Instruções para GitHub Copilot\n\n' },
+            {
+                path: '.cursor/rules/memoria-viva.mdc',
+                preamble: '---\ndescription: Carrega a memória e o protocolo profissional do projeto\nalwaysApply: true\n---\n\n'
+            }
+        ];
+        const results = [];
+
+        for (const target of targets) {
+            const targetPath = path.join(this.dna.root, target.path);
+            const exists = await fs.pathExists(targetPath);
+            const previous = exists ? await fs.readFile(targetPath, 'utf8') : null;
+            let content = exists ? previous : target.preamble;
+            content = this._applyManagedBlock(content, MANAGED_MARKERS.bootstrap, bootstrap, 'Memória Viva');
+            results.push(await this._writeFileIfChanged(targetPath, content, previous));
+        }
+
+        return results;
+    }
+
+    _buildAgentBootstrap() {
+        return `Antes de alterar o projeto:
+
+1. Leia \`.agent/memory.json\` e \`.agent/rules.md\`.
+2. Leia o registro mais recente de \`docs/ai/HANDOFF_ATUAL.md\` e as regras confirmadas em \`docs/ai/MODULOS_E_REGRAS.md\`.
+3. Execute \`memoria-viva check\`; se a memória estiver desatualizada, execute \`memoria-viva sync\` e releia o snapshot.
+4. Para UI, leia também \`docs/ai/DESIGN_SYSTEM.md\`.
+
+Trate o código e os testes como fonte de verdade. Investigue a causa-raiz, preserve contratos existentes, limite-se ao pedido e não declare sucesso sem registrar as validações realmente executadas.`;
+    }
+
+    async _ensurePreflight() {
+        if (this._preflightComplete) return;
+
+        let previousState = null;
+        try {
+            previousState = await MemoryState.load(this.dna.root);
+        } catch (error) {
+            throw new Error(`Não foi possível ler .agent/memory.json sem risco de perda: ${error.message}`);
+        }
+
+        if (previousState) {
+            const stateIssues = MemoryState.validateState(previousState);
+            if (stateIssues.length) {
+                throw new Error(`Estado de memória inválido; nenhuma escrita foi feita:\n- ${stateIssues.join('\n- ')}`);
+            }
+        }
+
+        const managed = previousState
+            ? await MemoryState.inspectManagedFiles(this.dna.root)
+            : { hashes: {}, issues: await MemoryState.inspectManagedStructure(this.dna.root, false) };
+        if (managed.issues.length) {
+            throw new Error(`Estrutura gerenciada inválida; nenhuma escrita foi feita:\n- ${managed.issues.join('\n- ')}`);
+        }
+        if (previousState) {
+            const conflicts = MemoryState.MANAGED_FILES.filter(relativePath =>
+                managed.hashes[relativePath]
+                && previousState.managedFiles[relativePath]
+                && managed.hashes[relativePath] !== previousState.managedFiles[relativePath]
+            );
+            if (conflicts.length) {
+                throw new Error(`Artefatos gerenciados mudaram desde o último sync; nenhuma sobrescrita foi feita:\n- ${conflicts.join('\n- ')}`);
+            }
+        }
+
+        this._previousState = previousState;
+        this._preflightComplete = true;
+    }
+
+    async _withProjectLock(callback) {
+        if (this.options.dryRun) return callback();
+        const lockPath = path.join(this.dna.root, '.agent', '.sync.lock');
+        await fs.ensureDir(path.dirname(lockPath));
+        let handle;
+        try {
+            handle = await fs.promises.open(lockPath, 'wx');
+            await handle.writeFile(`${JSON.stringify({ pid: process.pid, startedAt: new Date().toISOString() })}\n`, 'utf8');
+        } catch (error) {
+            if (error.code === 'EEXIST') {
+                throw new Error('Outra sincronização do Memória Viva está em andamento (.agent/.sync.lock).');
+            }
+            throw error;
+        }
+
+        try {
+            return await callback();
+        } finally {
+            if (handle) await handle.close().catch(() => {});
+            await fs.remove(lockPath).catch(() => {});
+        }
+    }
+
+    async synchronize() {
+        return this._withProjectLock(async () => {
+            this._preflightComplete = false;
+            this._generated = false;
+            await this._ensurePreflight();
+
+            const refreshedDNA = await new ProjectAnalyzer(this.dna.root).analyze();
+            if (refreshedDNA.warnings && refreshedDNA.warnings.length) {
+                throw new Error(`Análise interrompida antes da escrita: ${refreshedDNA.warnings.join('; ')}`);
+            }
+            Object.assign(this.dna, refreshedDNA);
+
+            const generated = await this.generate();
+            const synced = await this.syncContext();
+            let health = null;
+            if (!this.options.dryRun) {
+                health = await MemoryState.inspect(this.dna.root, this.dna);
+                if (!health.healthy) {
+                    throw new Error(`A sincronização não produziu um estado íntegro:\n- ${health.issues.join('\n- ')}`);
+                }
+            }
+            return { generated, synced, health };
+        });
+    }
+
+    async syncContext() {
+        await this._ensurePreflight();
+        const results = [];
+        let stable = false;
+        for (let attempt = 0; attempt < 3; attempt++) {
+            const beforeFingerprint = MemoryState.fingerprint(MemoryState.normalizeDNA(this.dna));
+            const refreshedDNA = await new ProjectAnalyzer(this.dna.root).analyze();
+            if (refreshedDNA.warnings && refreshedDNA.warnings.length) {
+                throw new Error(`Análise interrompida durante o sync: ${refreshedDNA.warnings.join('; ')}`);
+            }
+            const refreshedFingerprint = MemoryState.fingerprint(MemoryState.normalizeDNA(refreshedDNA));
+            Object.assign(this.dna, refreshedDNA);
+
+            if (!this._generated || refreshedFingerprint !== beforeFingerprint) {
+                this._generated = false;
+                const generated = await this.generate();
+                results.push(...generated.results);
+            }
+
+            const verificationDNA = await new ProjectAnalyzer(this.dna.root).analyze();
+            if (verificationDNA.warnings && verificationDNA.warnings.length) {
+                throw new Error(`Análise interrompida durante a verificação final: ${verificationDNA.warnings.join('; ')}`);
+            }
+            const verificationFingerprint = MemoryState.fingerprint(MemoryState.normalizeDNA(verificationDNA));
+            if (verificationFingerprint === MemoryState.fingerprint(MemoryState.normalizeDNA(this.dna))) {
+                Object.assign(this.dna, verificationDNA);
+                stable = true;
+                break;
+            }
+
+            Object.assign(this.dna, verificationDNA);
+            this._generated = false;
+        }
+        if (!stable) {
+            throw new Error('O projeto continuou mudando durante a sincronização; nenhuma conclusão de sucesso foi registrada. Execute sync novamente quando as edições terminarem.');
+        }
+
+        const routesPath = path.join(this.dna.root, 'docs', 'ai', 'ROTAS_DETECTADAS.md');
+        results.push(await this._writeFileIfChanged(routesPath, this._buildRoutesMarkdown(this.dna.routes || [])));
+
+        const graph = new KnowledgeGraph(this.dna).build();
+        this.dna.knowledgeGraph = KnowledgeGraph.extract(this.dna);
+        const graphPath = path.join(this.dna.root, 'docs', 'ai', 'GRAFO.md');
+        results.push(await this._writeFileIfChanged(graphPath, graph.toMarkdown()));
+        const graphHtmlPath = path.join(this.dna.root, 'docs', 'ai', 'GRAFO.html');
+        results.push(await this._writeFileIfChanged(graphHtmlPath, graph.toHtml()));
+
+        const managedFiles = this.options.dryRun
+            ? (this._previousState ? this._previousState.managedFiles : {})
+            : await MemoryState.captureManagedFiles(this.dna.root);
+        const state = MemoryState.build(this.dna, this._previousState, managedFiles);
+        const statePath = path.join(this.dna.root, '.agent', 'memory.json');
+        results.push(await this._writeFileIfChanged(statePath, `${JSON.stringify(state, null, 2)}\n`));
+
+        this._preflightComplete = false;
+        this._previousState = state;
+        this._generated = false;
+
+        return {
+            ...this._summarize(results),
+            fingerprint: state.fingerprint,
+            syncedAt: state.syncedAt
+        };
+    }
+
+    _buildRoutesMarkdown(routes) {
+        return `# Rotas detectadas automaticamente
+
+> Gerado por \`memoria-viva sync\`. Detecção estática conservadora; confirme rotas dinâmicas no runtime.
+
+| Método | Caminho | Módulo inferido | Arquivo |
+|--------|---------|-----------------|---------|
+${this._buildRoutesTable(routes)}
+`;
+    }
+
+    _generateGraphArtifacts() {
+        const graph = new KnowledgeGraph(this.dna).build();
+        this.dna.knowledgeGraph = KnowledgeGraph.extract(this.dna);
+        const markdownPath = path.join(this.dna.root, 'docs', 'ai', 'GRAFO.md');
+        const htmlPath = path.join(this.dna.root, 'docs', 'ai', 'GRAFO.html');
         return [
-            '- [ ] Sintaxe validada',
-            '- [ ] Análise estática sem erros',
-            '- [ ] Testes automatizados passaram'
-        ].join('\n');
-    }
-
-    _getStackTooling() {
-        const f = this.dna.framework || '';
-        if (f.includes('AdonisJS')) return { di: 'AdonisJS IoC Container', logs: 'AdonisJS Logger (pino)', testes: 'Japa' };
-        if (f.includes('Laravel')) return { di: 'Laravel Container', logs: 'Monolog', testes: 'PHPUnit' };
-        if (f.includes('Slim')) return { di: 'PHP-DI (PSR-11)', logs: 'Monolog', testes: 'PHPUnit' };
-        if (f.includes('Symfony')) return { di: 'Symfony DI', logs: 'Monolog', testes: 'PHPUnit' };
-        if (f.includes('NestJS')) return { di: 'NestJS DI', logs: 'Winston / Pino', testes: 'Jest' };
-        if (f.includes('PHP')) return { di: 'PHP-DI / Laravel Container', logs: 'Monolog', testes: 'PHPUnit' };
-        if (f.includes('Node')) return { di: 'AdonisJS IoC Container', logs: 'AdonisJS Logger (pino)', testes: 'Japa' };
-        return { di: 'Container nativo', logs: 'Logger padrão', testes: 'Testes da stack' };
+            this._writeFileIfChanged(markdownPath, graph.toMarkdown()),
+            this._writeFileIfChanged(htmlPath, graph.toHtml())
+        ];
     }
 }
 

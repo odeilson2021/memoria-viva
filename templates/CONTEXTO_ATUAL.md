@@ -1,96 +1,29 @@
-# 🧠 CÉREBRO TÉCNICO — CONTEXTO ATUAL DO PROJETO
+# CONTEXTO ATUAL DO PROJETO
 
-> **Memória Viva — Documento vivo.** Atualizado a cada sessão de desenvolvimento.
-> Este arquivo é o ponto de partida obrigatório para qualquer agente de IA.
+> Ponto de entrada humano para arquitetura e estado técnico. O snapshot automático contém somente fatos detectáveis; decisões e regras confirmadas ficam nas seções manuais.
 
----
+## Snapshot automático
 
-## 🏗️ Stack e Arquitetura
+<!-- MEMORIA_VIVA:SNAPSHOT:START -->
+<!-- Conteúdo atualizado automaticamente por memoria-viva sync. -->
+<!-- MEMORIA_VIVA:SNAPSHOT:END -->
 
-| Camada | Tecnologia |
-|--------|-----------|
-| **Backend** | PHP 8.2+ Strict Types |
-| **Framework** | *(preencher: Slim 4, Laravel 10+, etc.)* |
-| **Banco de dados** | MySQL / MariaDB (`utf8mb4_unicode_ci`) |
-| **ORM / Migrations** | *(preencher: Doctrine, Eloquent, Phinx)* |
-| **Injeção de Dependência** | *(preencher: PHP-DI, Laravel Container)* |
-| **Logs** | Monolog |
-| **Testes** | PHPUnit |
-| **CI/CD** | GitHub Actions → `deploy.yml` |
-| **Servidor MCP** | `@berthojoris/mcp-mysql-server` via `tools/mcp-mysql.js` |
+## Arquitetura e invariantes confirmados pelo time
 
-> ⚠️ **Agente: Substitua os campos acima com a stack real do projeto.**
+> Registre somente o que foi confirmado em código, testes, schema ou decisão explícita. Inclua a origem quando possível.
 
----
+- *(a confirmar)*
 
-## 📁 Estrutura de Pastas
+## Pontos de entrada e fluxos críticos confirmados
 
-```
-projeto/
-├── .agent/
-│   └── rules.md
-├── app/
-│   ├── Actions/
-│   │   ├── Admin/
-│   │   ├── Store/
-│   │   ├── Driver/
-│   │   └── Client/
-│   ├── Domain/
-│   └── Infrastructure/
-│       ├── Persistence/
-│       └── Middleware/
-├── database/
-│   └── migrations/
-├── docs/
-│   └── ai/
-│       ├── CONTEXTO_ATUAL.md
-│       ├── MODULOS_E_REGRAS.md
-│       └── HANDOFF_ATUAL.md
-└── routes/
-    ├── index.php
-    ├── web/
-    └── api/v1/
-```
+- *(a confirmar)*
 
-> ⚠️ **Agente: Atualize com a estrutura de pastas real do projeto.**
+## Limitações e riscos conhecidos
 
----
+- *(a confirmar)*
 
-## 🗄️ Tabelas do Banco de Dados
+## Decisões vigentes
 
-> ⚠️ **Agente: Preencha usando MCP MySQL:**
-> `list_tables` → `read_table_schema({table: "nome"})` para cada tabela
-
-| Tabela | Descrição | Colunas Principais |
-|--------|-----------|-------------------|
-| *(use list_tables via MCP para preencher)* | | |
-
----
-
-## 🛣️ Rotas por Módulo
-
-> ⚠️ **Agente: Preencha com as rotas reais de `routes/`**
-
-| Módulo | Prefixo | Middleware | Arquivo |
-|--------|---------|-----------|---------|
-| *(preencher)* | | | |
-
----
-
-## 🔐 Sistema de Sessões (`auth_sessions`)
-
-| Módulo | Validade | Renovação |
-|--------|---------|-----------|
-| Admin / Master | **24 horas** | Sem renovação automática |
-| Operacional / Lojista / App / Cliente | **7 dias** | Idle Refresh automático |
-
-> As sessões são persistidas no banco de dados na tabela `auth_sessions`.
-> Isso garante que logins sobrevivam a reinícios de servidor e deploys via Git.
-
----
-
-## 📅 Histórico de Atualizações
-
-| Data | Agente | O que foi feito |
-|------|--------|----------------|
-| *(data)* | Instalador | Inicialização da Memória Viva |
+| Data | Decisão | Evidência/motivo | Impacto |
+|------|---------|------------------|---------|
+| *(data)* | Inicialização da memória | `memoria-viva init` | Snapshot automático disponível |

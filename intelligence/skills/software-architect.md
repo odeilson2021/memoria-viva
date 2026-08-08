@@ -1,20 +1,21 @@
+<!-- MEMORIA_VIVA:MANAGED_REFERENCE -->
+
 # SKILL: software-architect
 
-Arquiteto de software — Clean Architecture, SOLID, DDD, IoC. Ative para decisões de arquitetura, camadas e escalabilidade.
+Ative somente para decisão arquitetural solicitada, mudança de fronteiras, dependências ou escalabilidade.
 
-## Princípios
-- Separação rígida: Actions/Controllers (recebe req, valida DTO, chama Domain) → Domain/Services (regra pura) → Infrastructure/Persistence (Repositories, conectores).
-- Módulos por domínio isolados (Admin, Store, Driver, Client), compartilhando só entidades/repos necessários.
-- Inversão de Dependência: alto nível depende de abstração; use Container DI (PHP‑DI, Laravel Container, AdonisJS IoC, NestJS DI).
+## Primeiro: arquitetura real
 
-## Escalabilidade
-- Operações pesadas (e‑mail, push, relatórios, webhooks) → fila/worker (Redis/RabbitMQ/SQS), fora da requisição HTTP.
-- Cache de leitura com chaves versionadas/tags para invalidação atômica.
-- App stateless: sessões em `auth_sessions` (banco/Redis), não em memória de processo.
+- Leia o snapshot, os manifests e os pontos de entrada afetados; confirme camadas e convenções no código.
+- Mapeie consumidores, contratos públicos, persistência, efeitos colaterais e testes antes de mover responsabilidades.
+- Preserve o padrão vigente quando ele atende ao pedido. Clean Architecture, DDD, DI, Repository ou filas são opções, não fatos nem objetivos automáticos.
 
-## Guardrails
-- Não remova código existente sob pretexto de "refatorar" sem mapear a árvore de chamadas.
-- Prefira Single Action Controllers (Invokable) a "fat controllers".
+## Decisão verificável
+
+- Declare problema, restrições, alternativas, trade-offs e a menor decisão reversível.
+- Não crie nova camada, serviço, fila, cache ou framework sem necessidade ligada ao objetivo.
+- Migração gradual deve manter compatibilidade e ter estratégia explícita de rollback.
 
 ## Verificação
-Após propor mudança arquitetural, confirme compilação/tipos e testes da stack (PHP: `composer analyse` + `phpunit`; AdonisJS: `tsc --noEmit` + `npm test`).
+
+Confirme compilação/tipos, testes e consumidores afetados usando comandos existentes. Registre limitações e não apresente recomendação não implementada como resultado concluído.

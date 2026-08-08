@@ -8,12 +8,12 @@ node_modules/
 
 # Configurações de teste local MCP
 .mcp.json
-.cursor/
+.cursor/mcp.json
 opencode.json
 mcp_config.json
 
 # IDEs e editores
-.vscode/
+.vscode/mcp.json
 .idea/
 *.swp
 *.swo

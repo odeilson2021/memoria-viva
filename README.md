@@ -1,409 +1,181 @@
-# 🧠 Memória Viva — AI Context & Governance Engine
+# Memória Viva
 
-> **Memória que sobrevive entre chats.**
-> Ferramenta CLI global que configura agentes de IA em qualquer projeto
-> em menos de 60 segundos, com contexto completo, regras de negócio e
-> MCP MySQL configurado.
+CLI local para manter um snapshot verificável do projeto e entregá-lo aos agentes de IA — incluindo os fluxos de **vibe coding** — sem obrigá-los a reler todo o repositório a cada sessão.
 
----
+O Memória Viva nasceu para resolver o problema de contexto em desenvolvimento assistido por IA: o agente perde o raciocínio entre sessões, relev o repositório inteiro (caro e lento) e, pior, inventa fatos sobre uma base de código que não conhece a fundo. Ele empresa um "cérebro de projeto" local, versionável e auditável.
 
-## ⚡ Instalação Global
+## Para programadores de vibe code
 
-> ⚠️ **O Memória Viva NÃO está publicado no registry público do npm.** O comando `npm install -g memoria-viva` falha com erro 404. Instale sempre a partir do código-fonte clonado do Git (veja abaixo).
+Se você desenvolve "no vibe" — pede à IA para criar, ajustar e explicar código em loop rápido — o Memória Viva é o que mantém o barco no rumo:
 
-### Pré-requisitos
-- Node.js 18+
-- Git
-- (opcional) MySQL/MariaDB para o MCP MySQL
+- **Memória que sobrevive à sessão.** O agente não começa do zero nem precisa reler tudo: recebe um snapshot compacto e íntegro.
+- **Foco no pedido.** O protocolo embutido faz o agente limitar-se ao que foi pedido, provar causa-raiz e não declarar sucesso sem executar validações.
+- **Contexto verificável.** Em vez de "acho que é assim", o agente tem stack, rotas, módulos e o grafo de relações comprovados por detecção estática.
+- **Segurança contra alucinação.** `check` falha se o código mudou e a memória ficou fria; regras de negócio não são inventadas, só registradas com evidência.
+- **Grafo visual.** `GRAFO.md` (Mermaid) e `GRAFO.html` (viewer interativo estilo Obsidian) mostram como módulos, rotas, tabelas e stack se conectam — ótimo para entender o projeto antes de pedir a próxima mudança.
 
-### Opção 1 — Clone + instalação manual (funciona em qualquer SO)
+O Memória Viva separa três tipos de informação:
+
+- **Fatos automáticos:** stack, inventário, fingerprint, rotas reconhecidas e tabelas mencionadas em migrations.
+- **Contexto confirmado:** arquitetura, regras de negócio e decisões registradas pelo time/agente com evidência.
+- **Handoff:** objetivo, causa-raiz, alterações e resultados reais da sessão mais recente.
+
+O código, os testes, os manifests e o schema real continuam sendo a fonte de verdade. Detecção estática não é tratada como regra de negócio.
+
+## Requisitos e instalação
+
+- Node.js 18 ou superior
+- npm
+- Git é recomendado, mas não obrigatório
+
+O pacote ainda não é publicado no registry público. Instale a partir do clone:
+
 ```bash
 git clone https://github.com/yuslen/memoria-viva.git
 cd memoria-viva
-npm install          # instala as dependências locais (chalk, fs-extra)
-npm install -g .     # registra o CLI globalmente como `memoria-viva`
+npm install
+npm test
+npm install -g .
 ```
 
-### Opção 2 — Clone + instalador automático (Linux / Mac / WSL)
-```bash
-git clone https://github.com/yuslen/memoria-viva.git
-cd memoria-viva
-bash ./scripts/install-linux.sh
-```
+Também estão disponíveis `npm run install:win` e `npm run install:linux`.
 
-### Opção 3 — Clone + instalador automático (Windows PowerShell)
-```powershell
-git clone https://github.com/yuslen/memoria-viva.git
-cd memoria-viva
-powershell -ExecutionPolicy Bypass -File .\scripts\install-windows.ps1
-```
+## Uso recomendado
 
-### Opção 4 — One-liner (clona e instala automaticamente)
-Linux / Mac / WSL:
-```bash
-git clone https://github.com/yuslen/memoria-viva.git && cd memoria-viva && npm install && npm install -g .
-```
-Windows (PowerShell):
-```powershell
-git clone https://github.com/yuslen/memoria-viva.git; cd memoria-viva; npm install; npm install -g .
-```
-
-> Após a instalação, reinicie o terminal/IDE para que a alteração de PATH seja aplicada.
-
----
-
-## 🎯 O que a instalação global faz
-
-| # | Ação | Detalhe |
-|---|------|---------|
-| 1 | **Instala o CLI** | Comando `memoria-viva` disponível globalmente |
-| 2 | **Configura PATH** | Adiciona automaticamente ao PATH do sistema |
-| 3 | **Baixa templates** | Templates de regras, contexto, skills e MCP MySQL |
-| 4 | **Prepara CI/CD** | Template genérico de `.github/workflows/deploy.yml` |
-
----
-
-## 🧰 Comandos CLI
-
-| Comando | Descrição |
-|---------|-----------|
-| `memoria-viva init` | Inicializa o Memória Viva no projeto atual |
-| `memoria-viva init --silent` | Modo não interativo (usa env vars) |
-| `memoria-viva init --dry-run` | Simula sem alterar arquivos |
-| `memoria-viva sync` | Sincroniza o contexto do projeto com o Memória Viva |
-| `memoria-viva sync --wizard` | Sync interativo com perguntas guiadas |
-| `memoria-viva sync --silent` | Sync não interativo |
-| `memoria-viva sync --dry-run` | Simula sync sem alterar arquivos |
-| `memoria-viva status` | Verifica o estado atual da instalação no projeto |
-| `memoria-viva configure` | Configura MCP e integração com IDEs |
-| `memoria-viva update` | Atualiza os arquivos do Memória Viva |
-| `memoria-viva check` | Valida se o projeto atual possui os arquivos da Memória Viva |
-| `memoria-viva --help` | Mostra os comandos disponíveis |
-| `memoria-viva --version` | Mostra a versão |
-
----
-
-## 🔄 Comando `init` — Inicialização
-
-O comando `memoria-viva init` cria a estrutura completa do Memória Viva no diretório onde for executado:
+Na raiz do projeto ou pacote que deve possuir memória própria:
 
 ```bash
-cd /caminho/para/seu/projeto
 memoria-viva init
-```
-
-### O que ele cria:
-
-```
-seu-projeto/
-├── .agent/
-│   └── rules.md               ← Guardrails invioláveis para qualquer IA
-├── bin/
-│   └── memoria-viva.js        ← Runner seguro do servidor MCP MySQL
-├── docs/
-│   └── ai/
-│       ├── CONTEXTO_ATUAL.md  ← Cérebro técnico do projeto
-│       ├── MODULOS_E_REGRAS.md ← Regras de negócio por módulo
-│       ├── DESIGN_SYSTEM.md   ← DNA Visual e Estilo
-│       └── HANDOFF_ATUAL.md   ← Diário de bordo entre agentes
-├── scripts/
-│   ├── install-windows.ps1    ← Instalador Windows
-│   └── install-linux.sh       ← Instalador Linux/Mac
-├── templates/
-│   ├── CONTEXTO_ATUAL.md
-│   ├── HANDOFF_ATUAL.md
-│   ├── MODULOS_E_REGRAS.md
-│   ├── deploy.yml             ← Workflow CI/CD Zero-Downtime
-│   ├── mcp_config.json        ← Template de conexão MCP
-│   └── rules.md               ← Regras invioláveis dos agentes
-├── .env.mcp                   ← Credenciais MySQL (NÃO versionado)
-├── .env.mcp.example           ← Template de credenciais
-├── .mcp.json                  ← Config MCP para Claude Code
-├── .cursor/mcp.json           ← Config MCP para Cursor
-├── .vscode/mcp.json           ← Config MCP para VS Code
-├── opencode.json              ← Config MCP para OpenCode
-├── .github/workflows/
-│   └── deploy.yml             ← CI/CD template genérico
-├── .gitignore
-├── LICENSE
-└── package.json
-```
-
----
-
-## 🔄 Comando `sync` — Sincronização de Contexto
-
-O comando `sync` é o coração da integração do Memória Viva com o projeto. Ele:
-
-1. **Detecta a stack** do projeto (PHP Slim 4, Laravel, Node.js, etc.)
-2. **Verifica a presença** de todos os arquivos do Memória Viva
-3. **Analisa a estrutura** do projeto (diretórios, rotas, controllers, models)
-4. **Atualiza `CONTEXTO_ATUAL.md`** com a stack detectada e estrutura de pastas
-5. **Atualiza `HANDOFF_ATUAL.md`** com o registro da sincronização
-6. **Atualiza `MODULOS_E_REGRAS.md`** com os módulos identificados
-7. **Verifica a configuração MCP** e do `.gitignore`
-
----
-
-## 📊 Comando `status` — Verificação de Estado
-
-O comando `status` verifica quais arquivos do Memória Viva estão presentes no projeto e quais estão ausentes, fornecendo um resumo claro do estado da instalação.
-
----
-
-## ⚙️ Comando `configure` — Configuração de MCP e IDEs
-
-O comando `configure` configura os arquivos de MCP (`.mcp.json`, `.cursor/mcp.json`, `.vscode/mcp.json`, `opencode.json`) e atualiza o `.gitignore` com as entradas necessárias.
-
----
-
-## 🔄 Comando `update` — Atualização de Arquivos
-
-O comando `update` é um alias de `sync`: reanalisa o DNA do projeto, cria os arquivos da Memória Viva que estiverem ausentes e sincroniza as rotas detectadas automaticamente (`docs/ai/ROTAS_DETECTADAS.md` e a tabela de Rotas em `CONTEXTO_ATUAL.md`). Arquivos já existentes e editados pelo usuário não são sobrescritos.
-
----
-
-## 🔍 Comando `check` — Validação
-
-O comando `check` valida se o projeto atual possui os arquivos da Memória Viva ativos:
-
-```bash
 memoria-viva check
+memoria-viva context
 ```
 
-Retorna:
-- ✅ Arquivos presentes
-- ⚠️ Arquivos ausentes
-- 📋 Próximos passos
-
----
-
-## 📦 Suporte por Stack
-
-O Memória Viva detecta automaticamente a stack do projeto e aplica as regras adequadas.
-
-### PHP — Slim 4
-- Single Action Controllers (Invokable Classes)
-- Repository Pattern com PHP-DI Container
-- Doctrine ORM/Migrations
-- Rotas em `routes/web/` e `routes/api/v1/`
-
-### PHP — Laravel
-- Controller classes com métodos resource
-- Eloquent ORM + Laravel Migrations
-- Service Container para injeção de dependência
-
-### Node.js — AdonisJS (Padrão full-stack)
-- **AdonisJS (TypeScript):** stack full-stack estilo Laravel — backend **e** frontend unificados no mesmo app (como PHP Slim/Laravel).
-- **Controllers** com responsabilidade única em `app/Controllers/` (Single Action ou resource) + **Repository Pattern** via Lucid (`app/Repositories/`).
-- **Injeção de Dependência** pelo IoC Container nativo do AdonisJS (bindings em `providers/`); proibido instanciar dependências manualmente.
-- **Frontend unificado** com Edge (`resources/views/`) ou Inertia — backend e frontend juntos, sem app separado.
-- **Lucid ORM** + migrations; **Sessões resilientes** em MySQL (`auth_sessions`) via `@adonisjs/session` (sobrevivem a restart/deploy).
-- Testes com **Japa** (padrão AdonisJS).
-
-> Outros frameworks Node (NestJS, Next.js, Express, Fastify) continuam sendo detectados automaticamente, mas o padrão recomendado para novos projetos é AdonisJS.
-
-### Outras Stacks
-O Memória Viva também funciona com Python, Ruby, Go, .NET e outras stacks.
-A stack é detectada automaticamente pelos arquivos do projeto.
-
----
-
-## 📂 Padrão de Estrutura de Pastas
-
-Todo projeto que utiliza o Memória Viva deve seguir esta estrutura:
-
-```
-projeto/
-├── .agent/
-│   └── rules.md               ← Guardrails invioláveis da IA
-├── app/
-│   ├── Actions/               ← Single Action Controllers (Invokable)
-│   │   ├── Admin/             ← Módulo Admin Master
-│   │   ├── Store/             ← Módulo Lojista
-│   │   ├── Driver/            ← Módulo Entregador
-│   │   └── Client/            ← Módulo Cliente / Marketplace
-│   ├── Domain/                ← Entidades de Negócio
-│   └── Infrastructure/
-│       ├── Persistence/       ← Repositories (Slim + Doctrine)
-│       └── Middleware/        ← SessionValidation, Permissions, ErrorHandler
-├── database/
-│   └── migrations/            ← Migrações oficiais do banco
-├── docs/
-│   └── ai/
-│       ├── CONTEXTO_ATUAL.md  ← Cérebro técnico do projeto
-│       ├── MODULOS_E_REGRAS.md ← Regras de negócio por módulo
-│       ├── DESIGN_SYSTEM.md   ← DNA Visual e Estilo
-│       └── HANDOFF_ATUAL.md   ← Diário de bordo entre agentes
-└── routes/
-    ├── index.php              ← Entrypoint mestre das rotas
-    ├── web/                   ← Rotas WEB (admin.php, store.php, client.php, site.php)
-    └── api/v1/                ← APIs RESTful (auth.php, stores.php, orders.php, drivers.php)
-```
-
-### Estrutura para Node.js (AdonisJS) — espelha o fluxo PHP
-
-```
-projeto/
-├── .agent/
-│   └── rules.md               ← Guardrails invioláveis da IA
-├── app/
-│   ├── Controllers/           ← Controllers (Single Action ou resource)
-│   │   ├── Admin/             ← Módulo Admin Master
-│   │   ├── Store/             ← Módulo Lojista
-│   │   ├── Driver/            ← Módulo Entregador
-│   │   └── Client/            ← Módulo Cliente / Marketplace
-│   ├── Repositories/          ← Repository Pattern (Lucid)
-│   ├── Models/                ← Entidades de Domínio (Lucid Models)
-│   └── Middleware/            ← SessionValidation, Permissions, ErrorHandler
-├── resources/
-│   └── views/                 ← Frontend unificado (Edge templates)
-├── database/
-│   └── migrations/            ← Migrations Lucid
-├── providers/                 ← IoC Container bindings (DI)
-├── start/
-│   └── routes.ts              ← Entrypoint mestre das rotas
-├── docs/
-│   └── ai/                    ← CONTEXTO_ATUAL.md, MODULOS_E_REGRAS.md, DESIGN_SYSTEM.md, HANDOFF_ATUAL.md
-└── public/                    ← Assets estáticos
-```
-
----
-
-## 🔧 Após a Instalação
-
-### 1. Sincronize o projeto com o Memória Viva
+Depois de alterar código, rotas, manifests, migrations ou configuração:
 
 ```bash
 memoria-viva sync
+memoria-viva check
 ```
 
-Ou leia o arquivo `templates/SYNC_INSTRUCTIONS.md` para instruções detalhadas.
+Em monorepos, execute no diretório do pacote ou informe a raiz explicitamente:
 
-### 2. Preencha o `.env.mcp`
-```env
-MYSQL_HOST=127.0.0.1
-MYSQL_PORT=3306
-MYSQL_DATABASE=seu_banco
-MYSQL_USER=root
-MYSQL_PASSWORD=sua_senha
-MYSQL_CHARSET=utf8mb4
+```bash
+memoria-viva sync --root ./apps/api
 ```
 
-### 3. Reinicie a IDE
+## Arquivos criados pelo `init`
 
-### 4. Peça ao agente para ler e preencher o contexto
-```
-"Leia o projeto todo. Atualize docs/ai/CONTEXTO_ATUAL.md com a stack,
-tabelas (use MCP: list_tables), rotas e arquitetura reais.
-Depois atualize docs/ai/MODULOS_E_REGRAS.md com as regras de negócio
-e docs/ai/HANDOFF_ATUAL.md com o estado atual.
-Siga todas as regras em .agent/rules.md."
-```
-
----
-
-## 📋 Requisitos
-
-| Requisito | Para quê |
-|-----------|----------|
-| **Node.js 18+** | CLI e MCP MySQL |
-| **Git** | Detectar a raiz do projeto |
-| **PHP 8.2+** e **MySQL** | Projetos PHP |
-
----
-
-## 🧩 Modos de Uso
-
-| Modo | Comando |
-|------|---------|
-| Wizard interativo | `memoria-viva init` |
-| Inicializar | `memoria-viva init` |
-| Sincronizar | `memoria-viva sync` |
-| Verificar estado | `memoria-viva status` |
-| Configurar | `memoria-viva configure` |
-| Atualizar | `memoria-viva update` |
-| Validar | `memoria-viva check` |
-| Silencioso (CI/automação) | `memoria-viva init --silent` |
-| Dry run (simular) | `memoria-viva init --dry-run` |
-| Via env vars | `PROJECT_NAME="X" DB_HOST="Y" memoria-viva init --silent` |
-
----
-
-## 🔌 MCP MySQL
-
-O Memória Viva inclui um servidor MCP MySQL que permite aos agentes de IA
-consultar o banco de dados diretamente:
-
-| Ferramenta | Descrição |
-|------------|-----------|
-| `list_tables` | Lista todas as tabelas do banco |
-| `read_table_schema` | Lê o schema de uma tabela |
-| `run_select_query` | Executa queries SELECT |
-| `get_database_summary` | Resumo do banco de dados |
-| `search_schema` | Busca em schemas |
-| `analyze_query` | Analisa queries |
-
----
-
-## 🔄 CI/CD — Deploy em Produção
-
-O Memória Viva inclui um template genérico de GitHub Actions para deploy em produção:
-
-- CI (lint + análise estática + testes)
-- Deploy SSH via rsync
-- Migrations do banco de dados
-- Health check pós-deploy
-- Rollback automático em falha
-
-O workflow está configurado para **NÃO fazer deploy automático** — apenas em `workflow_dispatch`.
-
----
-
-## 📖 Documentação do Projeto
-
-Após a instalação e sincronização, o Memória Viva mantém os seguintes arquivos de contexto:
-
-| Arquivo | Descrição |
-|---------|-----------|
-| `docs/ai/CONTEXTO_ATUAL.md` | Cérebro técnico do projeto — stack, tabelas, rotas, arquitetura |
-| `docs/ai/MODULOS_E_REGRAS.md` | Regras de negócio por módulo |
-| `docs/ai/HANDOFF_ATUAL.md` | Diário de bordo entre agentes — registro incremental de sessões |
-
----
-
-## 🛡️ Regras e Guardrails
-
-O Memória Viva inclui regras invioláveis para agentes de IA:
-
-- **`.agent/rules.md`** — Regras gerais para qualquer agente de IA
-- **`templates/rules.md`** — Template de regras para novos projetos
-
----
-
-## 📦 Estrutura do Repositório
-
-```
-memoria-viva/
-├── bin/
-│   └── memoria-viva.js        ← Script CLI principal
-├── templates/
-│   ├── rules.md               ← Regras invioláveis dos agentes
-│   ├── CONTEXTO_ATUAL.md      ← Cérebro técnico (Arquitetura)
-│   ├── MODULOS_E_REGRAS.md     ← Regras de negócio e arquivos
-│   ├── DESIGN_SYSTEM.md        ← DNA Visual e Estilo
-│   ├── HANDOFF_ATUAL.md        ← Memory Log e Checklist
-│   ├── deploy.yml              ← Workflow CI/CD Zero-Downtime
-│   └── mcp_config.json         ← Template MCP MySQL
-├── scripts/
-│   ├── install-windows.ps1     ← Instalador Windows (auto PATH)
-│   └── install-linux.sh        ← Instalador Linux/Mac (auto PATH)
-├── package.json                ← Configuração do pacote NPM
-├── README.md                   ← Esta documentação
-├── LICENSE                     ← Licença MIT
-└── .gitignore                  ← Arquivos ignorados pelo Git
+```text
+projeto/
+├── AGENTS.md
+├── CLAUDE.md
+├── .agent/
+│   ├── memory.json
+│   ├── rules.md
+│   ├── BRIEFING.md
+│   ├── PROMPT_ENGINE.md
+│   ├── SKILLS.md
+│   └── skills/
+├── .cursor/rules/memoria-viva.mdc
+├── .github/copilot-instructions.md
+    └── docs/ai/
+    ├── CONTEXTO_ATUAL.md
+    ├── ROTAS_DETECTADAS.md
+    ├── GRAFO.md
+    ├── GRAFO.html
+    ├── MODULOS_E_REGRAS.md
+    ├── HANDOFF_ATUAL.md
+    └── DESIGN_SYSTEM.md
 ```
 
----
+`AGENTS.md`, `CLAUDE.md`, a regra do Cursor e as instruções do Copilot são bootstraps: apontam o agente para o snapshot e o protocolo profissional. Se já existirem, somente o bloco delimitado `MEMORIA_VIVA:BOOTSTRAP` é inserido/atualizado; o restante é preservado.
 
-*Memória Viva — Feito para times que usam IAs no dia a dia sem perder contexto entre sessões.*
+`BRIEFING.md`, `PROMPT_ENGINE.md`, `SKILLS.md` e `.agent/skills/*.md` são referências normativas gerenciadas pelo pacote. Atualizações corrigem essas cópias; numa instalação antiga sem estado verificável, o conteúdo anterior é salvo em `.agent/backups/` antes da migração. Templates legados conhecidos que continham fatos presumidos também são substituídos por versões factuais, com backup recuperável.
+
+O `init` **não** cria workflow de produção, não aplica migration, não faz commit/push e não altera configurações globais de IDE.
+
+## Como a sincronização funciona
+
+1. O analisador percorre arquivos-fonte e manifests, ignorando dependências, caches, secrets e a própria memória gerada.
+2. Um SHA-256 representa o conteúdo inventariado e o DNA detectado.
+3. `.agent/memory.json` guarda o snapshot canônico, a data, o fingerprint e hashes dos artefatos automáticos.
+4. Blocos `MEMORIA_VIVA:*` são regenerados; texto humano fora deles é preservado e não entra no hash automático.
+5. A sincronização faz preflight antes da primeira escrita e usa `.agent/.sync.lock` para impedir dois processos do Memória Viva no mesmo projeto.
+6. `check` recalcula fingerprint e hashes, valida JSON, schema, arquivos, ordem/duplicidade de marcadores e metadados de recuperação. Estado ausente, corrompido, adulterado ou divergente retorna código de saída `1`.
+
+Uma terceira sincronização sem mudanças é idempotente: snapshot e timestamp permanecem iguais.
+
+## Protocolo dos agentes
+
+Os arquivos gerados orientam o agente a:
+
+- recuperar memória e checar divergência antes de agir;
+- limitar-se ao pedido e ao fora de escopo;
+- reproduzir bugs, estabelecer baseline e provar a causa-raiz;
+- localizar implementação e consumidores antes de criar/substituir;
+- preservar contratos e código funcional;
+- executar regressões e validações existentes;
+- nunca relatar como aprovado algo que não foi executado/conferido;
+- atualizar o handoff com evidência, sem fabricar histórico.
+
+## Comandos
+
+| Comando | Comportamento |
+|---------|--------------|
+| `memoria-viva init` | Cria arquivos ausentes, bootstraps e primeiro snapshot. |
+| `memoria-viva sync` | Atualiza blocos gerenciados e fingerprint. |
+| `memoria-viva check` | Valida integridade e atualidade; falha com exit `1`. |
+| `memoria-viva status` | Alias atual de `check`, com DNA e saúde. |
+| `memoria-viva context` | Exibe resumo compacto do snapshot. |
+| `memoria-viva context --json` | Retorna o estado canônico em JSON. |
+| `memoria-viva graph` | Imprime o grafo de conhecimento (nós, conexões e backlinks) em Mermaid. |
+| `memoria-viva update` | Alias de `sync`; atualiza somente blocos gerenciados. |
+| `memoria-viva mcp` | Coleta credenciais e configura MCP MySQL local. |
+| `memoria-viva configure` | Usa `.env.mcp`/variáveis existentes para configurar MCP. |
+
+Flags globais: `--root <path>`, `--dry-run`, `--silent`, `--help`, `--version`. Para MCP, `--global` é opt-in e mescla também configurações globais existentes.
+
+## MCP MySQL (opcional)
+
+MCP não é requisito para a memória funcionar. Quando configurado explicitamente:
+
+- credenciais ficam em `.env.mcp`;
+- os JSONs das IDEs apontam para `tools/memoria-viva-mcp.js` e não contêm senha;
+- o runner usa a versão fixada `1.43.2` e permissões `list,read,utility`;
+- configurações e servidores preexistentes são preservados;
+- JSON inválido interrompe o processo sem ser substituído;
+- `.gitignore` é criado/atualizado antes da configuração local;
+- a chave do servidor inclui um hash do caminho, isolando projetos com o mesmo nome de banco.
+
+Use uma conta de banco com o menor privilégio necessário. O runner passa credenciais ao processo-filho por variáveis de ambiente, não por argumentos; ainda assim, proteja a conta local e o arquivo `.env.mcp`.
+
+## Grafo de conhecimento
+
+Inspirado no grafo da Obsidian, o `memoria-viva` deriva um grafo de conhecimento do DNA detectado. Cada conceito vira um nó — módulo, rota, tabela, arquivo ou componente da stack — e cada relação comprovada vira uma aresta (por exemplo, `rota → módulo`, `rota → arquivo`, `tabela → banco`, `framework → ORM`).
+
+- `memoria-viva sync` gera `docs/ai/GRAFO.md` (grafo Mermaid, nós com grau de conexão, conexões e **backlinks por nó**) e `docs/ai/GRAFO.html` (viewer interativo autocontido, estilo Obsidian, com física de grafo e painel de backlinks ao clicar num nó).
+- `memoria-viva graph` imprime o grafo Mermaid diretamente no terminal.
+- O estado canônico em `.agent/memory.json` inclui `knowledgeGraph` (nós e arestas), exposto por `memoria-viva context --json`.
+
+O grafo é conservador: relações dinâmicas de runtime podem não aparecer, e decisões de negócio seguem exigindo confirmação humana/agente.
+
+## Limites honestos
+
+O Memória Viva reduz releitura e detecta divergência; **não** substitui testes nem compreensão do fluxo afetado. Limites conhecidos:
+
+- **Não entende runtime.** Rotas dinâmicas, grupos, middleware e o schema real do banco vivo não são provados — só há evidência estática de migrations.
+- **Não infere regras de negócio nem decisões.** Módulos são *inferidos pelo nome do arquivo* e o grafo não liga rota→tabela (sem análise de ORM estática). Decisões exigem registro humano/agente.
+- **Grafo conservador.** Relações dinâmicas podem não aparecer; trate `GRAFO.*` como auxílio visual, não fonte — o `memory.json` é a fonte canônica.
+- **Sem noção de importância.** O fingerprint reage a qualquer mudança de conteúdo, não só às relevantes.
+- **Tabelas de migrations são históricas**, não prova do banco atual.
+- **Handoff depende de registro real.** O `sync` atualiza apenas o checklist gerenciado; o resultado vem do agente/time.
+
+## Desenvolvimento e validação
+
+```bash
+npm test
+npm run test:smoke
+node --check bin/memoria-viva.js
+```
+
+Templates de deploy existentes no repositório são apenas referências e nunca são instalados automaticamente. Revise-os para a stack e infraestrutura reais antes de qualquer uso.

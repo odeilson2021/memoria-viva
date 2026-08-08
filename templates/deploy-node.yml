@@ -1,4 +1,4 @@
-name: CI e Deploy de Producao (Node / AdonisJS)
+name: CI e Deploy de Producao (Node generico)
 
 on:
   workflow_dispatch:
@@ -31,7 +31,7 @@ jobs:
       - name: Validar sintaxe e tipos
         run: |
           npm run lint --if-present
-          npx tsc --noEmit
+          npm run typecheck --if-present
 
       - name: Testes automatizados
         run: npm test --if-present
@@ -124,10 +124,11 @@ jobs:
             test -f .env
             mkdir -p tmp public/uploads
             npm ci --omit=dev
-            node ace build || true
-            node ace migration:run --force || true
-            if command -v sudo >/dev/null 2>&1 && sudo -n true 2>/dev/null; then
-              sudo systemctl reload "${{ secrets.SERVICE_NAME || 'memoria-viva' }}" || true
+            npm run build --if-present
+            npm run migrate --if-present
+            SERVICE_NAME="${{ secrets.SERVICE_NAME }}"
+            if [ -n "$SERVICE_NAME" ] && command -v sudo >/dev/null 2>&1 && sudo -n true 2>/dev/null; then
+              sudo systemctl reload "$SERVICE_NAME"
             fi
             HEALTHCHECK_URL="${{ secrets.HEALTHCHECK_URL }}"
             HTTP_STATUS="$(curl -sS -o /dev/null -w '%{http_code}' --retry 3 --retry-delay 3 "$HEALTHCHECK_URL" || true)"

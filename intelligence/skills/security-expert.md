@@ -1,20 +1,21 @@
+<!-- MEMORIA_VIVA:MANAGED_REFERENCE -->
+
 # SKILL: security-expert
 
-Segurança — OWASP, sanitização, sessões resilientes. Ative para auth, validação, exposição de dados e secrets.
+Ative para autenticação, autorização, validação, secrets, exposição de dados e superfícies de ataque.
 
-## OWASP Top 10
-- Injection: prepared statements + bind params em 100% das queries; escapar shell, proibir `eval()`/`exec()` não validados.
-- XSS: escapar todo output dinâmico em HTML; CSP restritivo.
-- CSRF: token CSRF em POST/PUT/DELETE/PATCH; cookie sessão `HttpOnly`+`Secure`+`SameSite`.
-- Broken Access Control/IDOR: rota com `{id}` valida se o usuário é dono do recurso (`store_id`/`user_id`).
+## Modelo de ameaça proporcional
 
-## Sessões (`auth_sessions`)
-- Persistir token/hash em `auth_sessions`; nunca só em memória volátil.
-- Admin/Master: 24h, sem idle refresh. Operacional/Lojista/App: 7d com idle refresh. Troca de senha/logout invalida atomicamente.
+- Identifique ativo, fronteira de confiança, ator, entrada e impacto antes de alterar o fluxo.
+- Confirme o mecanismo existente de sessão/token, papéis, tenants e expiração. Não invente `auth_sessions`, prazos ou perfis.
+- Verifique autorização no servidor para o recurso e ação reais; não confunda autenticação com autorização.
 
-## Secrets & input
-- Zero secrets no Git; usar `.env`.
-- Validar estritamente inputs (e‑mail, CPF/CNPJ, int positivo, strings limitadas).
+## Controles
+
+- Parametrize queries/comandos, encode saída no contexto correto e valide entrada nos limites do sistema.
+- Aplique CSRF, CSP, cookies e headers conforme o tipo de cliente e arquitetura confirmados.
+- Não grave secrets em Git, logs, URLs versionáveis ou relatórios. Prefira credenciais de menor privilégio e rotação possível.
 
 ## Verificação
-Teste cenários de acesso cruzado (IDOR) e envio de payload malformado antes de concluir.
+
+Teste casos permitidos e negados, acesso cruzado quando aplicável, payloads malformados e ausência de vazamento. Não alegue segurança total; registre escopo e limitações da análise.

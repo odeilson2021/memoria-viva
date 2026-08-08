@@ -1,22 +1,18 @@
-# BRIEFING — Modelo de Tarefa (5 elementos obrigatórios)
+<!-- MEMORIA_VIVA:MANAGED_REFERENCE -->
 
-Toda tarefa deve ser entregue ao agente neste formato. Se faltar algum item, o agente DEVE perguntar antes de codar.
+# BRIEFING — Contrato de tarefa
 
-```
+Use este modelo quando ele reduzir ambiguidade. O agente deve completar lacunas com evidências e suposições seguras; só pergunta quando uma escolha material altera resultado, risco ou escopo.
+
+```markdown
 ## Briefing
-- **Objetivo:** <resultado final esperado em 1 frase>
-- **Restrições/Ambiente:** <tecnologias, versões, o que NÃO pode ser alterado>
-- **Formato:** <estrutura exata da entrega: arquivos, assinaturas, schema>
-- **Exemplo:** <amostra do resultado esperado>
-- **Critério de Pronto (DoD):** <instrução testável que define conclusão, ex: "testes X verdes + lint sem erro">
+- **Objetivo:** resultado observável esperado.
+- **Sintoma e esperado:** obrigatório para bugs, quando conhecido.
+- **Restrições/ambiente:** tecnologias e contratos que não podem mudar.
+- **Fora de escopo:** trabalho que não deve ser iniciado.
+- **Formato/contrato:** arquivos, assinaturas ou schema a preservar/entregar.
+- **Exemplo:** opcional, quando esclarece comportamento.
+- **Critério de pronto:** validação executável e resultado esperado.
 ```
 
-### Exemplo real
-```
-## Briefing — Endpoint de listagem de lojas
-- Objetivo: GET /stores retorna lojas ativas paginadas em JSON.
-- Restrições: PHP 8.2, Slim 4, usar StoreRepository existente, não alterar auth_sessions.
-- Formato: app/Actions/Store/ListStoresAction.php com __invoke(Request,Response):Response; resposta {data,meta}.
-- Exemplo: {"data":[{"id":1,"name":"X"}],"meta":{"page":1,"total":42}}
-- DoD: php -l OK em todos os arquivos + PHPUnit StoreTest verde + rota não quebra login.
-```
+O agente primeiro localiza a implementação atual e transforma o pedido em um plano verificável. Não deve exigir que o usuário reformule uma solicitação já suficientemente clara.

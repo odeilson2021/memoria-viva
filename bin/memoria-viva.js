@@ -9,278 +9,296 @@ const fs = require('fs-extra');
 const ProjectAnalyzer = require('../engine/analyzer');
 const ContextGenerator = require('../engine/generator');
 const MCPBridge = require('../engine/mcp-bridge');
-
-const PROJECT_ROOT = process.cwd();
+const MemoryState = require('../engine/memory-state');
+const KnowledgeGraph = require('../engine/graph');
 
 const COMMANDS = {
-    init: 'Analisa o projeto alvo e injeta as regras e memória viva sob medida',
-    sync: 'Sincroniza e atualiza o contexto lendo rotas, tabelas ou componentes recentes',
-    mcp: 'Assistente interativo para configurar o MCP MySQL (@berthojoris/mcp-mysql-server)',
-    check: 'Audita o projeto e verifica se as regras e memórias estão ativas e sincronizadas',
-    status: 'Exibe o status detalhado dos arquivos da Memória Viva no projeto',
-    configure: 'Configura o MCP de Banco de Dados e integrações com IDEs',
-    update: 'Atualiza os modelos e templates com a versão global mais recente'
+    init: 'Inicializa o snapshot e os pontos de entrada dos agentes',
+    sync: 'Atualiza fatos detectados sem sobrescrever contexto humano',
+    check: 'Valida integridade e divergência entre memória e projeto',
+    status: 'Exibe o estado verificável da memória',
+    context: 'Recupera o snapshot compacto para agentes e automações',
+    graph: 'Imprime o grafo de conhecimento (nós, conexões e backlinks)',
+    mcp: 'Configura credenciais e MCP MySQL de forma interativa',
+    configure: 'Mescla a configuração MCP usando .env.mcp existente',
+    update: 'Atualiza os blocos gerenciados e o snapshot (alias de sync)'
 };
 
-function log(msg) {
-    console.log(chalk.cyan(`🔷 ${msg}`));
-}
+class CliError extends Error {}
 
-function success(msg) {
-    console.log(chalk.green(`  ✅ ${msg}`));
-}
-
-function warning(msg) {
-    console.log(chalk.yellow(`  ⚠️  ${msg}`));
-}
-
-function error(msg) {
-    console.error(chalk.red(`  ❌ ${msg}`));
-    process.exit(1);
-}
-
-function getProjectRoot() {
-    let current = PROJECT_ROOT;
-    while (current !== path.dirname(current)) {
-        if (fs.existsSync(path.join(current, '.git'))) {
-            return current;
-        }
-        current = path.dirname(current);
-    }
-    return PROJECT_ROOT;
-}
-
-function parseFlags(args) {
-    return {
+function parseArguments(args) {
+    const knownFlags = new Set(['--dry-run', '--silent', '--help', '-h', '--version', '-v', '--global', '--json', '--root']);
+    const flags = {
         dryRun: args.includes('--dry-run'),
         silent: args.includes('--silent'),
         help: args.includes('--help') || args.includes('-h'),
-        version: args.includes('--version') || args.includes('-v')
+        version: args.includes('--version') || args.includes('-v'),
+        global: args.includes('--global'),
+        json: args.includes('--json'),
+        root: null
+    };
+    const rootIndex = args.indexOf('--root');
+    if (rootIndex >= 0) {
+        if (!args[rootIndex + 1] || args[rootIndex + 1].startsWith('-')) {
+            throw new CliError('--root exige um caminho.');
+        }
+        flags.root = args[rootIndex + 1];
+    }
+
+    const values = new Set(rootIndex >= 0 ? [rootIndex + 1] : []);
+    for (const [index, arg] of args.entries()) {
+        if (values.has(index)) continue;
+        if (arg.startsWith('-') && !knownFlags.has(arg)) throw new CliError(`Flag desconhecida: ${arg}.`);
+    }
+    const positionals = args.filter((arg, index) => !arg.startsWith('-') && !values.has(index));
+    if (positionals.length > 1) throw new CliError(`Argumentos inesperados: ${positionals.slice(1).join(' ')}.`);
+    const [command] = positionals;
+    return { flags, command };
+}
+
+function createReporter(flags) {
+    return {
+        info(message) {
+            if (!flags.silent) console.log(chalk.cyan(`🔷 ${message}`));
+        },
+        success(message) {
+            if (!flags.silent) console.log(chalk.green(`  ✅ ${message}`));
+        },
+        warning(message) {
+            if (!flags.silent) console.log(chalk.yellow(`  ⚠️  ${message}`));
+        },
+        issue(message) {
+            console.error(chalk.red(`  ❌ ${message}`));
+        },
+        raw(message) {
+            if (!flags.silent || flags.json) console.log(message);
+        }
     };
 }
 
-async function cmdInit(flags) {
-    const root = getProjectRoot();
-    console.log(chalk.magenta(`
-╔═══════════════════════════════════════════════════════════╗
-║     🧠 MEMÓRIA VIVA v2.0 — Dynamic AI Governance Engine   ║
-║     Inicializando cérebro de desenvolvimento adaptativo    ║
-╚═══════════════════════════════════════════════════════════╝`));
-
-    log('Analisando o DNA do projeto alvo...');
-    const analyzer = new ProjectAnalyzer(root);
-    const dna = await analyzer.analyze();
-
-    console.log(chalk.gray(`  ---------------------------------------------------------`));
-    console.log(chalk.bold(`  Linguagem:`), chalk.yellow(dna.language));
-    console.log(chalk.bold(`  Framework:`), chalk.yellow(dna.framework));
-    console.log(chalk.bold(`  Banco de Dados:`), chalk.yellow(dna.database));
-    console.log(chalk.bold(`  ORM / Abstração:`), chalk.yellow(dna.orm));
-    console.log(chalk.bold(`  UI / Styling:`), chalk.yellow(dna.uiFramework));
-    console.log(chalk.gray(`  ---------------------------------------------------------`));
-
-    if (flags.dryRun) {
-        warning('[DRY RUN] Nenhuma alteração foi gravada em disco.');
+async function getProjectRoot(explicitRoot = null, startDirectory = process.cwd()) {
+    if (explicitRoot) {
+        const resolved = path.resolve(startDirectory, explicitRoot);
+        if (!await fs.pathExists(resolved) || !(await fs.stat(resolved)).isDirectory()) {
+            throw new CliError(`Raiz de projeto inválida: ${resolved}`);
+        }
+        return resolved;
     }
 
-    log('Injetando guardrails e documentação técnica adaptada...');
-    const generator = new ContextGenerator(dna, { dryRun: flags.dryRun, silent: flags.silent });
-    const genResults = await generator.generate();
-
-    for (const file of genResults.createdFiles) success(`Criado: ${file}`);
-    for (const file of genResults.updatedFiles) success(`Atualizado: ${file}`);
-    for (const file of genResults.skippedFiles) warning(`Mantido (já existe): ${file}`);
-
-    log('Sincronizando rotas detectadas com o contexto...');
-    await generator.syncContext();
-
-    log('Configurando ponte MCP e integração com IDEs...');
-    const bridge = new MCPBridge(dna, { dryRun: flags.dryRun });
-    const mcpResults = await bridge.configure();
-
-    for (const res of mcpResults) success(`MCP (${res.action}): ${res.file}`);
-
-    console.log(chalk.green(`
-╔═══════════════════════════════════════════════════════════╗
-║       ✅  MEMÓRIA VIVA INICIALIZADA COM SUCESSO!           ║
-╚═══════════════════════════════════════════════════════════╝
-
-  📁 Projeto: ${chalk.bold(root)}
-  🧬 DNA: ${chalk.bold(dna.language)} | ${chalk.bold(dna.framework)} | ${chalk.bold(dna.database)}
-
-  📋 PRÓXIMOS PASSOS:
-  1. Execute "memoria-viva mcp" para configurar interativamente suas credenciais de banco
-  2. Solicite à sua IA: "Leia os arquivos em docs/ai/ e .agent/rules.md antes de codificar"
-  3. Execute "memoria-viva sync" a qualquer momento para re-sincronizar rotas e tabelas
-`));
+    const projectMarkers = ['package.json', 'composer.json', 'pyproject.toml', 'requirements.txt', 'go.mod'];
+    let current = path.resolve(startDirectory);
+    while (true) {
+        if (projectMarkers.some(marker => fs.existsSync(path.join(current, marker)))) return current;
+        if (fs.existsSync(path.join(current, '.git'))) return current;
+        const parent = path.dirname(current);
+        if (parent === current) break;
+        current = parent;
+    }
+    return path.resolve(startDirectory);
 }
 
-async function cmdMCP(flags) {
-    const root = getProjectRoot();
-    const analyzer = new ProjectAnalyzer(root);
-    const dna = await analyzer.analyze();
-
-    const bridge = new MCPBridge(dna, { dryRun: flags.dryRun });
-    const creds = flags.silent ? null : await bridge.promptInteractive();
-
-    log('Gerando credenciais e arquivos MCP para IDEs...');
-    const results = await bridge.configure(creds);
-
-    for (const res of results) success(`MCP (${res.action}): ${res.file}`);
-
-    console.log(chalk.green(`
-╔═══════════════════════════════════════════════════════════╗
-║       ✅  CONFIGURAÇÃO MCP MYSQL CONCLUÍDA!               ║
-╚═══════════════════════════════════════════════════════════╝
-
-  🔌 Pacote MCP: @berthojoris/mcp-mysql-server
-  🔑 Credenciais: .env.mcp (Gravado e ignorado pelo Git)
-  📘 Documentação: docs/mcp/mysql.md
-  💻 IDEs Configuradas: Claude Code (.mcp.json), Cursor (.cursor/mcp.json), VS Code (.vscode/mcp.json), OpenCode (opencode.json)
-`));
+function assertAnalysis(dna) {
+    if (dna.warnings && dna.warnings.length) {
+        throw new CliError(`Análise interrompida para não gravar contexto duvidoso:\n- ${dna.warnings.join('\n- ')}`);
+    }
 }
 
-async function cmdSync(flags) {
-    const root = getProjectRoot();
-    log(`Sincronizando contexto do projeto em: ${root}`);
-
-    const analyzer = new ProjectAnalyzer(root);
-    const dna = await analyzer.analyze();
-
-    success(`DNA Detectado: ${dna.language} | ${dna.framework} | ${dna.database}`);
-
-    const generator = new ContextGenerator(dna, { dryRun: flags.dryRun, silent: flags.silent });
-    const genResults = await generator.generate();
-    await generator.syncContext();
-
-    success(`Sincronização concluída! (${genResults.createdFiles.length} criados, ${genResults.updatedFiles.length} atualizados, ${genResults.skippedFiles.length} mantidos)`);
-}
-
-async function cmdCheck() {
-    const root = getProjectRoot();
-    console.log(chalk.magenta(`
-╔═══════════════════════════════════════════════════════════╗
-║     📊 MEMÓRIA VIVA — Audit & Status Check                ║
-╚═══════════════════════════════════════════════════════════╝`));
-
-    log('Analisando o DNA do projeto...');
-    const analyzer = new ProjectAnalyzer(root);
-    const dna = await analyzer.analyze();
-
-    console.log(`  Linguagem: ${chalk.cyan(dna.language)}`);
-    console.log(`  Framework: ${chalk.cyan(dna.framework)}`);
-    console.log(`  Banco: ${chalk.cyan(dna.database)}`);
-
-    const requiredFiles = [
-        '.agent/rules.md',
-        'docs/ai/CONTEXTO_ATUAL.md',
-        'docs/ai/MODULOS_E_REGRAS.md',
-        'docs/ai/HANDOFF_ATUAL.md',
-        'docs/ai/DESIGN_SYSTEM.md',
-        'docs/mcp/mysql.md',
-        '.github/workflows/deploy.yml',
-    ];
-
-    log('\nVerificando integridade da Memória Viva...');
-    let allPresent = true;
-    for (const file of requiredFiles) {
-        const filePath = path.join(root, file);
-        if (await fs.pathExists(filePath)) {
-            success(`Presente: ${file}`);
-        } else {
-            warning(`Ausente: ${file}`);
-            allPresent = false;
+function reportChanges(reporter, ...summaries) {
+    for (const summary of summaries) {
+        if (!summary) continue;
+        for (const result of summary.results || []) {
+            if (result.planned) reporter.warning(`[DRY RUN] Planejado: ${result.status} ${result.file}`);
+            else if (result.status === 'created') reporter.success(`Criado: ${result.file}`);
+            else if (result.status === 'updated') reporter.success(`Atualizado: ${result.file}`);
         }
     }
+}
 
-    console.log();
-    if (allPresent) {
-        success('Memória Viva está totalmente ativa e sincronizada!');
+async function analyze(root) {
+    const dna = await new ProjectAnalyzer(root).analyze();
+    assertAnalysis(dna);
+    return dna;
+}
+
+async function cmdInit(flags, reporter) {
+    const root = await getProjectRoot(flags.root);
+    reporter.info(`Analisando o projeto: ${root}`);
+    const dna = await analyze(root);
+    reporter.info(`DNA: ${dna.language} | ${dna.framework} | ${dna.database}`);
+
+    const generator = new ContextGenerator(dna, flags);
+    const { generated, synced } = await generator.synchronize();
+    reportChanges(reporter, generated, synced);
+
+    if (flags.dryRun) {
+        reporter.warning(`Simulação concluída; nenhuma alteração foi gravada. Fingerprint previsto: ${synced.fingerprint.slice(0, 12)}`);
     } else {
-        warning('Alguns arquivos estão ausentes. Execute "memoria-viva init" para restaurar.');
+        reporter.success(`Memória inicializada e verificada. Fingerprint: ${synced.fingerprint.slice(0, 12)}`);
+        reporter.info('MCP e deploy não foram configurados automaticamente. Use comandos explícitos se forem necessários.');
     }
 }
 
-async function cmdConfigure(flags) {
-    const root = getProjectRoot();
-    log('Reconfigurando pontes MCP e IDEs...');
+async function cmdSync(flags, reporter) {
+    const root = await getProjectRoot(flags.root);
+    reporter.info(`Sincronizando contexto do projeto: ${root}`);
+    const dna = await analyze(root);
+    const generator = new ContextGenerator(dna, flags);
+    const { generated, synced } = await generator.synchronize();
+    reportChanges(reporter, generated, synced);
 
-    const analyzer = new ProjectAnalyzer(root);
-    const dna = await analyzer.analyze();
+    const changed = [...generated.createdFiles, ...generated.updatedFiles, ...synced.createdFiles, ...synced.updatedFiles];
+    if (flags.dryRun) {
+        reporter.warning(`Simulação concluída; ${generated.plannedFiles.length + synced.plannedFiles.length} alteração(ões) planejada(s), nenhuma gravada.`);
+    } else {
+        reporter.success(`Sincronização concluída com ${changed.length} alteração(ões) real(is). Fingerprint: ${synced.fingerprint.slice(0, 12)}`);
+    }
+}
 
-    const bridge = new MCPBridge(dna, { dryRun: flags.dryRun });
-    const results = await bridge.configure();
+async function cmdCheck(flags, reporter) {
+    const root = await getProjectRoot(flags.root);
+    const dna = await analyze(root);
+    const health = await MemoryState.inspect(root, dna);
 
-    for (const res of results) success(`MCP (${res.action}): ${res.file}`);
-    success('Configuração de MCP concluída!');
+    if (!flags.silent) {
+        reporter.raw(`Projeto: ${root}`);
+        reporter.raw(`DNA atual: ${dna.language} | ${dna.framework} | ${dna.database} | ${dna.orm}`);
+    }
+
+    if (!health.healthy) {
+        for (const issue of health.issues) reporter.issue(issue);
+        process.exitCode = 1;
+        return health;
+    }
+
+    reporter.success(`Snapshot íntegro e sincronizado em ${health.state.syncedAt}.`);
+    reporter.info('O check valida fatos automáticos; regras de negócio e handoff continuam exigindo evidência humana/agente.');
+    return health;
+}
+
+async function cmdContext(flags, reporter) {
+    const root = await getProjectRoot(flags.root);
+    const dna = await analyze(root);
+    const health = await MemoryState.inspect(root, dna);
+    if (!health.healthy) {
+        for (const issue of health.issues) reporter.issue(issue);
+        process.exitCode = 1;
+        return;
+    }
+
+    if (flags.json) {
+        console.log(JSON.stringify(health.state, null, 2));
+        return;
+    }
+
+    const snapshot = health.state.snapshot;
+    reporter.raw(`# ${snapshot.projectName}`);
+    reporter.raw(`Fingerprint: ${health.state.fingerprint}`);
+    reporter.raw(`Stack: ${snapshot.language} | ${snapshot.framework} | ${snapshot.database} | ${snapshot.orm}`);
+    reporter.raw(`Inventário: ${snapshot.inventory.sourceFiles} arquivos-fonte; ${snapshot.routes.length} rotas; ${snapshot.tables.length} tabelas mencionadas em migrations.`);
+    reporter.raw(`Leia em seguida: ${health.state.readFirst.join(', ')}`);
+}
+
+async function cmdGraph(flags, reporter) {
+    const root = await getProjectRoot(flags.root);
+    const dna = await analyze(root);
+    const graph = new KnowledgeGraph(dna).build();
+    if (!flags.silent) {
+        reporter.raw(`# Grafo de conhecimento: ${dna.projectName}`);
+        reporter.raw(`Nós: ${graph.nodes.length} | Conexões: ${graph.edges.length}`);
+        reporter.raw('');
+        reporter.raw('```mermaid');
+        reporter.raw(graph._mermaid());
+        reporter.raw('```');
+        reporter.raw('');
+        reporter.raw(`Arquivo completo: docs/ai/GRAFO.md (Mermaid) e docs/ai/GRAFO.html (viewer interativo).`);
+    }
+}
+
+async function cmdMCP(flags, reporter, interactive) {
+    const root = await getProjectRoot(flags.root);
+    const dna = await analyze(root);
+    if (dna.database !== 'Unknown' && !/MySQL|MariaDB/i.test(dna.database)) {
+        throw new CliError(`MCP MySQL não configurado: banco detectado como ${dna.database}.`);
+    }
+
+    const bridge = new MCPBridge(dna, { dryRun: flags.dryRun, global: flags.global });
+    const credentials = interactive && !flags.silent ? await bridge.promptInteractive() : null;
+    const results = await bridge.configure(credentials);
+    for (const result of results) {
+        const detail = result.reason ? ` — ${result.reason}` : '';
+        if (result.action === 'skipped') reporter.warning(`${result.file}: ignorado${detail}`);
+        else if (result.action === 'unchanged') reporter.warning(`${result.file}: mantido`);
+        else reporter.success(`${result.action}: ${result.file}`);
+    }
+
+    const skippedForCredentials = results.some(result => result.file === 'MCP configs' && result.action === 'skipped');
+    if (skippedForCredentials) {
+        process.exitCode = 1;
+        reporter.issue('Configuração MCP incompleta por falta de credenciais.');
+    } else if (flags.dryRun) {
+        reporter.warning('Simulação MCP concluída; nenhuma alteração foi gravada.');
+    } else {
+        reporter.success(`Configuração MCP ${flags.global ? 'local e global' : 'local'} concluída sem gravar senha nos JSONs.`);
+    }
 }
 
 function showHelp() {
-    console.log(chalk.magenta(`
-╔═══════════════════════════════════════════════════════════╗
-║     🧠 MEMÓRIA VIVA v2.0 — AI Context & Governance Engine ║
-║     Supercérebro de Desenvolvimento Dinâmico e Adaptativo ║
-╚═══════════════════════════════════════════════════════════╝`));
-
-    console.log(chalk.bold('\n📜 COMANDOS DISPONÍVEIS:'));
-    console.log(chalk.gray('───────────────────────────────────────────────────────────'));
-    for (const [cmd, desc] of Object.entries(COMMANDS)) {
-        console.log(`  ${chalk.cyan(cmd.padEnd(12))} ${chalk.white(desc)}`);
+    console.log(chalk.magenta('\nMEMÓRIA VIVA — memória verificável para agentes\n'));
+    for (const [command, description] of Object.entries(COMMANDS)) {
+        console.log(`  ${chalk.cyan(command.padEnd(12))} ${description}`);
     }
-    console.log(chalk.gray('───────────────────────────────────────────────────────────'));
-
-    console.log(chalk.bold('\n⚙️  OPÇÕES / FLAGS:'));
-    console.log(`  ${chalk.cyan('--dry-run')}     Simula as alterações sem gravar em disco`);
-    console.log(`  ${chalk.cyan('--silent')}      Execução silenciosa (modo não interativo)`);
-    console.log(`  ${chalk.cyan('--help, -h')}    Exibe esta lista de comandos`);
-    console.log(`  ${chalk.cyan('--version, -v')} Exibe a versão instalada (v2.0.0)`);
-
-    console.log(chalk.bold('\n🚀 EXEMPLOS DE USO:'));
-    console.log(`  ${chalk.green('memoria-viva init')}         Inicializa o projeto alvo`);
-    console.log(`  ${chalk.green('memoria-viva mcp')}          Assistente interativo de MCP MySQL`);
-    console.log(`  ${chalk.green('memoria-viva sync')}         Atualiza o contexto dinamicamente`);
-    console.log(`  ${chalk.green('memoria-viva check')}        Verifica se a memória está ativa\n`);
+    console.log('\nOpções:');
+    console.log('  --root <path>  Seleciona explicitamente o projeto/pacote');
+    console.log('  --dry-run      Calcula mudanças sem gravá-las');
+    console.log('  --silent       Suprime saída informativa');
+    console.log('  --json         Saída JSON no comando context');
+    console.log('  --global       Também mescla MCP nas configurações globais (opt-in)');
+    console.log('  --version, -v  Exibe a versão');
 }
 
-async function main() {
-    const args = process.argv.slice(2);
-    const flags = parseFlags(args);
-    const command = args.find(a => !a.startsWith('-'));
-
-    if (flags.help || !command || command === '/' || command === 'help' || command === 'list') {
+async function main(args = process.argv.slice(2)) {
+    const { flags, command } = parseArguments(args);
+    if (flags.version) {
+        const pkg = await fs.readJson(path.resolve(__dirname, '..', 'package.json'));
+        console.log(`memoria-viva v${pkg.version}`);
+        return;
+    }
+    if (flags.help || !command || ['/', 'help', 'list'].includes(command)) {
         showHelp();
         return;
     }
-
-    if (flags.version) {
-        const pkg = await fs.readJson(path.resolve(__dirname, '..', 'package.json')).catch(() => ({ version: '2.0.0' }));
-        console.log(chalk.cyan(`memoria-viva v${pkg.version}`));
-        return;
+    if (flags.global && !['mcp', 'configure'].includes(command)) {
+        throw new CliError('--global só é válido com mcp ou configure.');
+    }
+    if (flags.json && command !== 'context') {
+        throw new CliError('--json só é válido com context.');
     }
 
+    const reporter = createReporter(flags);
     switch (command) {
-        case 'init':
-            await cmdInit(flags);
-            break;
-        case 'mcp':
-            await cmdMCP(flags);
-            break;
-        case 'sync':
-            await cmdSync(flags);
-            break;
+        case 'init': return cmdInit(flags, reporter);
+        case 'sync': return cmdSync(flags, reporter);
         case 'check':
-        case 'status':
-            await cmdCheck();
-            break;
-        case 'configure':
-            await cmdConfigure(flags);
-            break;
-        case 'update':
-            await cmdSync(flags);
-            break;
-        default:
-            error(`Comando desconhecido: ${chalk.bold(command)}\nUse ${chalk.cyan('memoria-viva --help')} para ver a lista de comandos.`);
+        case 'status': return cmdCheck(flags, reporter);
+        case 'context': return cmdContext(flags, reporter);
+        case 'graph': return cmdGraph(flags, reporter);
+        case 'mcp': return cmdMCP(flags, reporter, true);
+        case 'configure': return cmdMCP(flags, reporter, false);
+        case 'update': return cmdSync(flags, reporter);
+        default: throw new CliError(`Comando desconhecido: ${command}. Use memoria-viva --help.`);
     }
 }
 
-main().catch(err => error(err.message));
+if (require.main === module) {
+    main().catch(error => {
+        console.error(chalk.red(`  ❌ ${error.message}`));
+        process.exitCode = 1;
+    });
+}
+
+module.exports = {
+    CliError,
+    getProjectRoot,
+    main,
+    parseArguments
+};

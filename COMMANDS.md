@@ -1,56 +1,37 @@
-# 📜 GUIA DE COMANDOS DO MEMÓRIA VIVA CLI
+# Comandos do Memória Viva
 
-> Este guia detalha o processo de instalação global e a lista completa de comandos disponíveis no **Memória Viva CLI v2.0**.
-
----
-
-## ⚡ 1. Instalação Global (Passo a Passo Inicial)
-
-> ⚠️ O Memória Viva **não está no registry público do npm**. Não use `npm install -g memoria-viva` (erro 404). Clone o repositório e instale a partir da pasta.
-
-Para instalar o Memória Viva de forma global, execute no terminal:
+## Memória
 
 ```bash
-# 1. Clone o repositório
-git clone https://github.com/yuslen/memoria-viva.git
-cd memoria-viva
-
-# 2. Instale as dependências do Node.js
-npm install
-
-# 3. Instalação global no sistema operacional:
-# No Windows (PowerShell):
-npm run install:win
-
-# No Linux / Mac (Bash):
-npm run install:linux
-
-# OU diretamente via npm (qualquer SO):
-npm install -g .
+memoria-viva init [--root <path>] [--dry-run] [--silent]
+memoria-viva sync [--root <path>] [--dry-run] [--silent]
+memoria-viva check [--root <path>] [--silent]
+memoria-viva status [--root <path>] [--silent]
+memoria-viva context [--root <path>] [--json]
+memoria-viva graph [--root <path>] [--silent]
+memoria-viva update [--root <path>] [--dry-run] [--silent]
 ```
 
-Após esse procedimento, o comando `memoria-viva` estará disponível em qualquer terminal do seu computador! (Reinicie o terminal/IDE para aplicar o PATH.)
+- `init`: cria arquivos ausentes e grava o primeiro snapshot.
+- `sync`/`update`: atualiza blocos gerenciados, referências normativas do pacote e o estado canônico; conteúdo humano fora dos blocos é preservado.
+- `check`/`status`: valida conteúdo, marcadores, schema e fingerprint. Retorna `1` quando inválido/desatualizado.
+- `context`: recupera o resumo; `--json` retorna `.agent/memory.json` validado.
+- `graph`: imprime o grafo de conhecimento (nós, conexões e backlinks) em Mermaid.
 
----
+## MCP MySQL opcional
 
-## 🧰 2. Lista de Comandos e Funcionalidades
+```bash
+memoria-viva mcp [--global]
+memoria-viva configure [--global] [--silent]
+```
 
- Ao digitar `memoria-viva` no terminal sem parâmetros, a ajuda interativa completa será exibida.
+`mcp` é interativo. `configure --silent` usa `.env.mcp` ou `MYSQL_HOST`, `MYSQL_PORT`, `MYSQL_DATABASE`, `MYSQL_USER`, `MYSQL_PASSWORD` e `MYSQL_CHARSET`. Sem `--global`, nenhuma configuração fora do projeto é alterada.
 
-| Comando | Descrição Completa | Exemplo de Uso |
-|---------|--------------------|----------------|
-| `memoria-viva init` | **Inicializa o Memória Viva no projeto alvo.** Analisa o DNA da aplicação (Linguagem, Framework, Banco, UI) e injeta as regras e arquivos de memória (`.agent/rules.md` e `docs/ai/`). | `memoria-viva init` |
-| `memoria-viva sync` | **Sincroniza e atualiza o contexto.** Lê novas rotas, tabelas e componentes criados recentemente e atualiza a documentação viva. | `memoria-viva sync` |
-| `memoria-viva check` | **Audita a saúde da Memória Viva no projeto.** Valida se todos os guardrails, diretrizes e memórias estão ativos e em dia. | `memoria-viva check` |
-| `memoria-viva status` | **Exibe o status e DNA do projeto.** Mostra a linguagem, framework, ORM e banco de dados detectados. | `memoria-viva status` |
-| `memoria-viva configure` | **Configura as pontes MCP e IDEs.** Gera/atualiza as configurações para Claude Code, Cursor, VS Code e OpenCode. | `memoria-viva configure` |
-| `memoria-viva update` | **Alias de `sync`.** Reanalisa o projeto e sincroniza rotas detectadas (não sobrescreve arquivos editados). | `memoria-viva update` |
-| `memoria-viva --help` | **Exibe o menu de ajuda interativo.** Mostra todos os comandos, flags e exemplos. | `memoria-viva --help` |
-| `memoria-viva --version` | **Exibe a versão do CLI.** Retorna `memoria-viva v2.0.0`. | `memoria-viva --version` |
+## Utilitários
 
----
+```bash
+memoria-viva --help
+memoria-viva --version
+```
 
-## ⚙️ 3. Flags Globais Suportadas
-
-- `--dry-run`: Simula todas as ações sem alterar nenhum arquivo em disco.
-- `--silent`: Executa em modo silencioso sem imprimir saídas longas (ideal para automações CI/CD).
+`--dry-run` nunca grava e relata ações como planejadas. `--silent` suprime saída informativa, mas erros continuam em `stderr` e no exit code.

@@ -1,45 +1,20 @@
-# 🟢 DIRETRIZES DE TECNOLOGIA: NODE.JS
+# Diretrizes condicionais — Node.js
 
-> **Escopo:** Diretrizes de desenvolvimento, arquitetura, assincronismo e performance para projetos Node.js.
-> **Stack padrão recomendada:** **AdonisJS** (full-stack estilo Laravel — backend + frontend unificados no mesmo app, espelhando o fluxo PHP Slim/Laravel). NestJS, Next.js, Express e Fastify continuam suportados.
+> Ative somente após confirmar runtime, framework, module system, linguagem e scripts em `package.json`/configuração.
 
----
+## Preservação
 
-## ⚡ 1. SINTAXE E ASSINCRONISMO
+- Não converta Node genérico, Express, Fastify, Nest, Next, React/Vite ou outro projeto para AdonisJS.
+- Preserve CommonJS/ESM, JavaScript/TypeScript, estrutura, DI, validação e camada de dados existentes salvo mudança explicitamente solicitada.
+- Use APIs assíncronas no caminho de I/O e trate erros conforme o mecanismo já adotado; callbacks não são defeito por si só.
 
-1. **Async / Await Mandatório:**
-   - Proibido uso de callbacks legados estilo `(err, result) => {}`.
-   - Utilizar obrigatoriamente `async/await` com blocos `try/catch` centralizados ou wrappers de tratamento de exceção.
+## Por framework comprovado
 
-2. **TypeScript Estrito:**
-   - Preferir TypeScript com `strict: true` no `tsconfig.json`.
-   - Proibido o uso indiscriminado do tipo `any`. Definir interfaces e tipos explícitos para DTOs, Entidades e Respostas.
+- **AdonisJS:** confirme `@adonisjs/core` e use seus comandos/IoC apenas se já fizerem parte do projeto.
+- **NestJS:** preserve módulos/providers e o container nativo.
+- **Express/Fastify:** preserve routers, hooks/middlewares e tratamento central de erro existentes.
+- **Next.js/frontends:** diferencie código servidor/cliente e não imponha arquitetura de backend não existente.
 
-3. **Event Loop Non-Blocking:**
-   - Proibido executar algoritmos síncronos pesados (CPU-bound) na thread principal. Utilizar `Worker Threads` ou delegar para processos externos.
+## Verificação
 
----
-
-## 🏗️ 2. PADRÕES DE ARQUITETURA POR FRAMEWORK
-
-### Node.js — AdonisJS (Padrão full-stack, espelha o fluxo PHP):
-- **Controllers com responsabilidade única:** Uma classe (ou Single Action) por domínio em `app/Controllers/`, implementando os métodos HTTP (`index`, `store`, `update`, `destroy`).
-- **Repository Pattern:** Toda regra de acesso a dados em `app/Repositories/` sobre Lucid Models; proibido SQL cru concatenado.
-- **Injeção de Dependência via IoC Container:** Declarar dependências via construtor ou bindings em `providers/`. Proibido instanciar dependências manualmente ou usar singletons globais (`new X()`).
-- **Frontend Unificado:** Views server-rendered com Edge (`resources/views/`) ou Inertia; backend e frontend no mesmo app, como no Laravel.
-- **Sessões Resilientes:** Driver de sessão persistente (MySQL `auth_sessions`) via `@adonisjs/session`; logins sobrevivem a restart/deploy.
-- **Tratamento de Erro:** Usar o Exception Handler do AdonisJS; nenhuma rota estoura 500 sem tratamento.
-
-### NestJS (alternativa backend):
-- **Arquitetura Modular:** Módulos (`@Module`), Controllers (`@Controller`), Services (`@Injectable`) e Repositories devidamente declarados.
-- **Dependency Injection:** Utilizar o sistema de DI nativo do NestJS.
-
-### Express / Fastify (alternativa leve):
-- **Router Modular:** Separar rotas em arquivos por domínio de negócio.
-- **Middlewares Desacoplados:** Autenticação, validação de payload (ex: Zod, Yup, Joi) e log de requisições extraídos para middlewares isolados.
-
----
-
-## 🧪 3. QUALIDADE E RECURSOS
-- **ESLint & Prettier:** Configuração padronizada.
-- **Japa:** Testes unitários para Services/Repositories e e2e para rotas (padrão AdonisJS). Jest / Vitest para demais stacks Node.
+Execute somente scripts declarados (`lint`, `typecheck`, `test`, `build`). Não use migration/deploy como validação neutra e não mascare falhas com `|| true`.
