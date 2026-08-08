@@ -18,7 +18,8 @@ const COMMANDS = {
     check: 'Valida integridade e divergência entre memória e projeto',
     status: 'Exibe o estado verificável da memória',
     context: 'Recupera o snapshot compacto para agentes e automações',
-    graph: 'Imprime o grafo de conhecimento (nós, conexões e backlinks)',
+    graph: 'Imprime o grafo de conhecimento (nós, conexões e backlinks) em Mermaid',
+    skins: 'Lista ou imprime skins padronizadas (front/back/banco)',
     mcp: 'Configura credenciais e MCP MySQL de forma interativa',
     configure: 'Mescla a configuração MCP usando .env.mcp existente',
     update: 'Atualiza os blocos gerenciados e o snapshot (alias de sync)'
@@ -51,8 +52,9 @@ function parseArguments(args) {
         if (arg.startsWith('-') && !knownFlags.has(arg)) throw new CliError(`Flag desconhecida: ${arg}.`);
     }
     const positionals = args.filter((arg, index) => !arg.startsWith('-') && !values.has(index));
-    if (positionals.length > 1) throw new CliError(`Argumentos inesperados: ${positionals.slice(1).join(' ')}.`);
+    if (positionals.length > 2) throw new CliError(`Argumentos inesperados: ${positionals.slice(1).join(' ')}.`);
     const [command] = positionals;
+    flags.positionals = positionals;
     return { flags, command };
 }
 
@@ -214,6 +216,29 @@ async function cmdGraph(flags, reporter) {
     }
 }
 
+async function cmdSkins(flags, reporter) {
+    const skinsDir = path.join(__dirname, '..', 'intelligence', 'skins');
+    const name = (flags.positionals && flags.positionals[1]) || null;
+    if (!await fs.pathExists(skinsDir)) {
+        throw new CliError('Diretório de skins ausente no pacote.');
+    }
+    const files = (await fs.readdir(skinsDir)).filter(file => file.endsWith('.md')).sort();
+    if (!name) {
+        reporter.info('Skins padronizadas disponíveis:');
+        for (const file of files.filter(file => file !== 'SKINS.md')) {
+            reporter.raw(`- ${file.replace(/\.md$/, '')}`);
+        }
+        reporter.info('Use: memoria-viva skins <nome> para imprimir a skin e enviá-la junto com o prompt.');
+        return;
+    }
+    const skinPath = path.join(skinsDir, `${name}.md`);
+    if (!await fs.pathExists(skinPath)) {
+        throw new CliError(`Skin inexistente: ${name}. Use 'memoria-viva skins' para listar.`);
+    }
+    const content = await fs.readFile(skinPath, 'utf8');
+    reporter.raw(content.replace(/^\s*<!--[\s\S]*?-->\s*/, ''));
+}
+
 async function cmdMCP(flags, reporter, interactive) {
     const root = await getProjectRoot(flags.root);
     const dna = await analyze(root);
@@ -282,6 +307,7 @@ async function main(args = process.argv.slice(2)) {
         case 'status': return cmdCheck(flags, reporter);
         case 'context': return cmdContext(flags, reporter);
         case 'graph': return cmdGraph(flags, reporter);
+        case 'skins': return cmdSkins(flags, reporter);
         case 'mcp': return cmdMCP(flags, reporter, true);
         case 'configure': return cmdMCP(flags, reporter, false);
         case 'update': return cmdSync(flags, reporter);

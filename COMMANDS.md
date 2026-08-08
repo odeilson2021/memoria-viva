@@ -9,6 +9,7 @@ memoria-viva check [--root <path>] [--silent]
 memoria-viva status [--root <path>] [--silent]
 memoria-viva context [--root <path>] [--json]
 memoria-viva graph [--root <path>] [--silent]
+memoria-viva skins [<nome>] [--root <path>] [--silent]
 memoria-viva update [--root <path>] [--dry-run] [--silent]
 ```
 
@@ -17,6 +18,8 @@ memoria-viva update [--root <path>] [--dry-run] [--silent]
 - `check`/`status`: valida conteúdo, marcadores, schema e fingerprint. Retorna `1` quando inválido/desatualizado.
 - `context`: recupera o resumo; `--json` retorna `.agent/memory.json` validado.
 - `graph`: imprime o grafo de conhecimento (nós, conexões e backlinks) em Mermaid.
+- `skins`: lista as skins (`front`, `back`, `database`) ou imprime uma skin para enviar junto com o prompt.
+- `mcp`: configura credenciais e MCP MySQL de forma interativa.
 
 ## MCP MySQL opcional
 

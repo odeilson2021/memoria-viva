@@ -79,3 +79,23 @@ test('descoberta de raiz para na primeira fronteira .git', async t => {
 
     assert.equal(await getProjectRoot(null, child), repositoryRoot);
 });
+
+test('skins lista e imprime a skin solicitada', async t => {
+    const root = await tmpProject(t, 'skins-cli');
+    assert.equal(run(['init', '--silent', '--root', root], root).status, 0);
+
+    const list = run(['skins'], path.dirname(cliPath));
+    assert.equal(list.status, 0, list.stderr);
+    assert.match(list.stdout, /\bfront\b/);
+    assert.match(list.stdout, /\bback\b/);
+    assert.match(list.stdout, /\bdatabase\b/);
+
+    const printed = run(['skins', 'back'], path.dirname(cliPath));
+    assert.equal(printed.status, 0, printed.stderr);
+    assert.match(printed.stdout, /SKIN: back-end/);
+    assert.doesNotMatch(printed.stdout, /MEMORIA_VIVA:MANAGED_REFERENCE/);
+
+    const missing = run(['skins', 'inexistente'], path.dirname(cliPath));
+    assert.equal(missing.status, 1);
+    assert.match(missing.stderr, /Skin inexistente/);
+});

@@ -177,6 +177,28 @@ O objetivo é dar ao agente o caminho sempre atualizado de cada área, evitando 
 
 O grafo é conservador: relações dinâmicas de runtime podem não aparecer, e decisões de negócio seguem exigindo confirmação humana/agente.
 
+## Skins padronizadas (front / back / banco)
+
+Skins são instruções profissionais e padronizadas enviadas **junto com o prompt do desenvolvedor** para guiar o agente de IA. Elas melhoram o conhecimento do agente sobre o projeto, a arquitetura, a linguagem e a análise, e mantêm a disciplina de correção:
+
+- **Foco exato:** implementa só o que foi pedido; não cria escopo não solicitado.
+- **Sem refatoração por conta própria:** não reescreve do zero; corrige a causa-raiz com o menor impacto. Refatoração ampla exige pedido, plano e aprovação.
+- **Sem destruir trabalho:** preserva código funcional, contratos e histórico.
+- **Segue a stack/linguagem/framework** exatamente; prefere API nativa, terceiro com critério.
+- **Cibersegurança:** requisições protegidas, token, validação de sessão/usuário, análise completa (OWASP, SQL parametrizado, menor privilégio).
+- **Organização limpa:** sem arquivos temporários, scripts ou lixo; estrutura enxuta.
+
+Skins disponíveis: `front` (componentes, estado, acessibilidade, segurança de cliente), `back` (rotas/serviços, validação, autenticação, OWASP) e `database` (modelagem, migrations, índices, queries, integridade). Elas são sincronizadas para `.agent/skins/` no `init`/`sync`.
+
+Imprima a skin para colar no chat:
+
+```bash
+memoria-viva skins back      # instrução de back-end
+memoria-viva skins front     # instrução de front-end
+memoria-viva skins database  # instrução de banco de dados
+memoria-viva skins           # lista as skins disponíveis
+```
+
 ## Limites honestos
 
 O Memória Viva reduz releitura e detecta divergência; **não** substitui testes nem compreensão do fluxo afetado. Limites conhecidos:

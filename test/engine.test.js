@@ -462,3 +462,25 @@ test('mapa e indice sao idempotentes', async t => {
     assert.equal(await fs.readFile(path.join(root, 'docs/ai/INDICE.md'), 'utf8'), firstIndex);
 });
 
+test('sincroniza skins padronizadas para .agent/skins/', async t => {
+    const root = await tmpProject(t, 'skins');
+    await scaffold(root, { 'package.json': { name: 'api', dependencies: { express: '^5' } } });
+    const dna = await new ProjectAnalyzer(root).analyze();
+    const generator = new ContextGenerator(dna);
+    await generator.generate();
+    await generator.syncContext();
+
+    for (const skin of ['front', 'back', 'database', 'SKINS']) {
+        const relPath = `.agent/skins/${skin}.md`;
+        assert.equal(await fs.pathExists(path.join(root, relPath)), true, `${relPath} ausente`);
+        const content = await fs.readFile(path.join(root, relPath), 'utf8');
+        assert.match(content, /MEMORIA_VIVA:MANAGED_REFERENCE/, `${relPath} sem marcador gerenciado`);
+    }
+    const back = await fs.readFile(path.join(root, '.agent/skins/back.md'), 'utf8');
+    assert.match(back, /Foco exato/);
+    assert.match(back, /Não refatore por conta própria/);
+
+    const health = await MemoryState.inspect(root, dna);
+    assert.equal(health.healthy, true, health.issues.join('\n'));
+});
+

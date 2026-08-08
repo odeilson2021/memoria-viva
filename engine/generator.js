@@ -45,6 +45,7 @@ class ContextGenerator {
         results.push(await this._generateHandoffFile());
         results.push(await this._generateDesignSystemFile());
         results.push(...await this._syncSkills());
+        results.push(...await this._syncSkins());
         results.push(...await this._syncManagedReference(
             path.join(this.templatesDir, 'BRIEFING.md'),
             '.agent/BRIEFING.md'
@@ -510,6 +511,22 @@ ${this._relatedDocs('CONTEXTO_ATUAL')}`;
         return results;
     }
 
+    async _syncSkins() {
+        const sourceDirectory = path.join(this.globalRoot, 'intelligence', 'skins');
+        if (!await fs.pathExists(sourceDirectory)) return [];
+        const files = (await fs.readdir(sourceDirectory))
+            .filter(file => file.endsWith('.md'))
+            .sort();
+        const results = [];
+        for (const file of files) {
+            results.push(...await this._syncManagedReference(
+                path.join(sourceDirectory, file),
+                `.agent/skins/${file}`
+            ));
+        }
+        return results;
+    }
+
     async _syncManagedReference(sourcePath, relativeTargetPath) {
         if (!await fs.pathExists(sourcePath)) {
             throw new Error(`Referência gerenciada ausente no pacote: ${sourcePath}`);
@@ -598,6 +615,7 @@ ${this._relatedDocs('CONTEXTO_ATUAL')}`;
 2. Leia o registro mais recente de \`docs/ai/HANDOFF_ATUAL.md\` e as regras confirmadas em \`docs/ai/MODULOS_E_REGRAS.md\`.
 3. Execute \`memoria-viva check\`; se a memória estiver desatualizada, execute \`memoria-viva sync\` e releia o snapshot.
 4. Para UI, leia também \`docs/ai/DESIGN_SYSTEM.md\`.
+5. Para guiar a execução, envie a skin correspondente (\`memoria-viva skins front|back|database\`) junto com o prompt; siga \`.agent/skins/\` quando disponível.
 
 Trate o código e os testes como fonte de verdade. Investigue a causa-raiz, preserve contratos existentes, limite-se ao pedido e não declare sucesso sem registrar as validações realmente executadas.`;
     }
