@@ -99,3 +99,19 @@ test('skins lista e imprime a skin solicitada', async t => {
     assert.equal(missing.status, 1);
     assert.match(missing.stderr, /Skin inexistente/);
 });
+
+test('skins <nome> --inject inclui o resumo do snapshot do projeto', async t => {
+    const root = await tmpProject(t, 'skins-inject');
+    assert.equal(run(['init', '--silent', '--root', root], root).status, 0);
+
+    const injected = run(['skins', 'back', '--inject', '--root', root], root);
+    assert.equal(injected.status, 0, injected.stderr);
+    assert.match(injected.stdout, /SKIN: back-end/);
+    assert.match(injected.stdout, /Contexto do projeto \(snapshot Memória Viva\)/);
+    assert.match(injected.stdout, /Cole este bloco no início do chat do agente/);
+    assert.match(injected.stdout, /docs\/ai\/CONTEXTO_ATUAL\.md/);
+
+    const badFlag = run(['context', '--inject'], path.dirname(cliPath));
+    assert.equal(badFlag.status, 1);
+    assert.match(badFlag.stderr, /--inject só é válido com skins/);
+});

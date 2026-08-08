@@ -199,6 +199,12 @@ memoria-viva skins database  # instrução de banco de dados
 memoria-viva skins           # lista as skins disponíveis
 ```
 
+Ou gere um bloco pronto, já com o resumo do projeto, para colar no início do chat do agente:
+
+```bash
+memoria-viva skins back --inject
+```
+
 ## Limites honestos
 
 O Memória Viva reduz releitura e detecta divergência; **não** substitui testes nem compreensão do fluxo afetado. Limites conhecidos:

@@ -19,6 +19,7 @@ memoria-viva update [--root <path>] [--dry-run] [--silent]
 - `context`: recupera o resumo; `--json` retorna `.agent/memory.json` validado.
 - `graph`: imprime o grafo de conhecimento (nós, conexões e backlinks) em Mermaid.
 - `skins`: lista as skins (`front`, `back`, `database`) ou imprime uma skin para enviar junto com o prompt.
+- `skins <nome> --inject`: gera um bloco pronto (skin + resumo do snapshot do projeto) para colar no início do chat do agente.
 - `mcp`: configura credenciais e MCP MySQL de forma interativa.
 
 ## MCP MySQL opcional

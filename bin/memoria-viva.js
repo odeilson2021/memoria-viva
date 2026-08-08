@@ -28,7 +28,7 @@ const COMMANDS = {
 class CliError extends Error {}
 
 function parseArguments(args) {
-    const knownFlags = new Set(['--dry-run', '--silent', '--help', '-h', '--version', '-v', '--global', '--json', '--root']);
+    const knownFlags = new Set(['--dry-run', '--silent', '--help', '-h', '--version', '-v', '--global', '--json', '--root', '--inject']);
     const flags = {
         dryRun: args.includes('--dry-run'),
         silent: args.includes('--silent'),
@@ -36,6 +36,7 @@ function parseArguments(args) {
         version: args.includes('--version') || args.includes('-v'),
         global: args.includes('--global'),
         json: args.includes('--json'),
+        inject: args.includes('--inject'),
         root: null
     };
     const rootIndex = args.indexOf('--root');
@@ -235,8 +236,40 @@ async function cmdSkins(flags, reporter) {
     if (!await fs.pathExists(skinPath)) {
         throw new CliError(`Skin inexistente: ${name}. Use 'memoria-viva skins' para listar.`);
     }
-    const content = await fs.readFile(skinPath, 'utf8');
-    reporter.raw(content.replace(/^\s*<!--[\s\S]*?-->\s*/, ''));
+    const skinBody = (await fs.readFile(skinPath, 'utf8')).replace(/^\s*<!--[\s\S]*?-->\s*/, '');
+
+    if (!flags.inject) {
+        reporter.raw(skinBody);
+        return;
+    }
+
+    const root = await getProjectRoot(flags.root);
+    let contextBlock = '_Memória não inicializada neste projeto. Rode `memoria-viva init` para gerar o snapshot._';
+    const state = await MemoryState.load(root);
+    if (state && MemoryState.validateState(state).length === 0) {
+        const snapshot = state.snapshot;
+        const inventory = snapshot.inventory || {};
+        contextBlock =
+`# Contexto do projeto (snapshot Memória Viva)
+
+- **Projeto:** ${snapshot.projectName}
+- **Fingerprint:** ${state.fingerprint}
+- **Stack:** ${snapshot.language} | ${snapshot.framework} | ${snapshot.database} | ${snapshot.orm}
+- **Inventário:** ${inventory.sourceFiles || 0} arquivos-fonte; ${snapshot.routes.length} rotas; ${snapshot.tables.length} tabelas mencionadas em migrations.
+- **Leia em seguida:** ${state.readFirst.join(', ')}
+
+> Leia essas notas antes de agir e siga a skin acima. Preserve contratos e não invente fatos.`;
+    }
+
+    reporter.raw(`# Instruções para o agente (Memória Viva)
+
+${skinBody}
+
+---
+
+${contextBlock}
+
+> Cole este bloco no início do chat do agente, antes do seu pedido.`);
 }
 
 async function cmdMCP(flags, reporter, interactive) {
@@ -297,6 +330,9 @@ async function main(args = process.argv.slice(2)) {
     }
     if (flags.json && command !== 'context') {
         throw new CliError('--json só é válido com context.');
+    }
+    if (flags.inject && command !== 'skins') {
+        throw new CliError('--inject só é válido com skins.');
     }
 
     const reporter = createReporter(flags);
