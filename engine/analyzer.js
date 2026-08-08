@@ -39,6 +39,7 @@ class ProjectAnalyzer {
                 'security-expert'
             ],
             routes: [],
+            tables: [],
             detectedFiles: []
         };
 
@@ -74,6 +75,7 @@ class ProjectAnalyzer {
         await this._analyzeEnvFiles(dna);
         await this._analyzeUIAndCSS(dna);
         await this._analyzeRoutes(dna);
+        await this._analyzeTables(dna);
 
         return dna;
     }
@@ -274,6 +276,28 @@ class ProjectAnalyzer {
         if (f.includes('auth') || f.includes('login')) return 'Auth';
         if (f.includes('api')) return 'API';
         return 'Geral';
+    }
+
+    async _analyzeTables(dna) {
+        const root = this.root;
+        const tables = new Set();
+        const scan = async (dir) => {
+            if (!(await fs.pathExists(dir))) return;
+            const entries = await fs.readdir(dir, { withFileTypes: true });
+            for (const e of entries) {
+                const full = path.join(dir, e.name);
+                if (e.isDirectory()) {
+                    await scan(full);
+                } else if (e.name.endsWith('.php') || e.name.endsWith('.ts') || e.name.endsWith('.js')) {
+                    const content = await fs.readFile(full, 'utf8');
+                    const re = /\b(?:Schema::create|schema\.create|createTable|createIfNotExists)\(\s*['"]([a-zA-Z0-9_]+)['"]/g;
+                    let m;
+                    while ((m = re.exec(content))) tables.add(m[1]);
+                }
+            }
+        };
+        await scan(path.join(root, 'database', 'migrations'));
+        dna.tables = [...tables];
     }
 }
 

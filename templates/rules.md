@@ -1,54 +1,52 @@
-# 🛡️ MEMÓRIA VIVA - PROMPT ENGINE & GUARDIÃO INVIOLÁVEL DE CONTEXTO
+<!-- DNA DO PROJETO DETECTADO: {{LANG}} | {{FRAMEWORK}} | {{DB}} | {{ORM}} | {{UI}} -->
 
-⚠️ ATENÇÃO AGENTE DE IA (CURSOR, CLAUDE, GEMINI, WINDSURF, OPENCODE, ETC.):
-ESTE ARQUIVO NÃO É UMA SUGESTÃO. É UM PROTOCOLO DE EXECUÇÃO RÍGIDO E MANDATÓRIO.
-QUALQUER DESVIO DAS REGRAS ABAIXO SERÁ CONSIDERADO UMA FALHA GRAVE DE EXECUÇÃO.
+# MEMÓRIA VIVA — REGRAS DE EXECUÇÃO (inviolável)
 
----
+Estas regras são mandatórias. Desvio = falha de execução.
 
-## 🚫 1. PROTOCOLO DE PRIORIDADE EXISTENCIAL (ANÁLISE ANTES DE CRIAR)
+## 1. Protocolo de Continuidade (Análise antes de Criar)
 
-Toda requisição do usuário (correção, ajuste, refatoração, melhoria ou novo recurso) DEVE OBRIGATORIAMENTE seguir este fluxo:
+Para qualquer pedido (correção, ajuste, refatoração, melhoria, novo recurso):
 
-1. **ETAPA 1 - INSPEÇÃO OBRIGATÓRIA:**
-   - Procure no projeto o código, arquivo, rota, Action ou Repository que JÁ RESPONDE por essa função.
-   - NUNCA assuma que uma funcionalidade não existe sem antes fazer um grep/search global no repositório.
+1. **Inspeção obrigatória:** localize o código/rota/Action/Repository que JÁ responde pela função (grep global no repo). Não presuma inexistência sem busca.
+2. **Ajuste/Evolução:** se já existe, edite/refatore o código atual. Proibido criar duplicata ou reescrever do zero.
+3. **Criação (exceção):** só crie arquivo/tabela/rota se a etapa 1 provar que é 100% inexistente.
 
-2. **ETAPA 2 - AJUSTE E EVOLUÇÃO (CONTINUIDADE):**
-   - Se a funcionalidade JÁ EXISTE: **Ajuste, corrija, refatore ou faça o upgrade do código existente.**
-   - É ESTREITAMENTE PROIBIDO criar uma nova função duplicada ou apagar o arquivo atual para reescrevê-lo do zero com outra lógica. Preserve o DNA da arquitetura.
+## 2. Proibições Absolutas
 
-3. **ETAPA 3 - CRIAÇÃO (EXCEÇÃO):**
-   - Só é permitido criar um novo arquivo, tabela ou rota se a ETAPA 1 provar conclusivamente que a funcionalidade é 100% INEXISTENTE no sistema.
+- Não apague/destrúa código funcional para "simplificar". Debug por evidências (logs, `error_log`, MCP MySQL).
+- Não use SQL solto/concatenado nem PDO cru. Todo acesso a banco passa por Repositories tipados (`Infrastructure/Persistence/` ou `Repositories/`).
+- Não quebre auth/login (`auth_sessions`), rotas de Admin Master, Lojista, Entregador ou Cliente.
 
----
+## 3. Antes de Gerar Código (Briefing + Leitura)
 
-## 🛑 2. PROIBIÇÕES ABSOLUTAS (ZERO RETRABALHO E ZERO AMNÉSIA)
+- Toda tarefa do usuário DEVE vir como Briefing (5 itens): **Objetivo · Restrições/Ambiente · Formato · Exemplo · Critério de Pronto**. Se faltar algum, pergunte ANTES de codar. Modelo: `docs/ai/BRIEFING.md`.
+- Leia antes de agir: `docs/ai/CONTEXTO_ATUAL.md`, `MODULOS_E_REGRAS.md`, `DESIGN_SYSTEM.md`, `HANDOFF_ATUAL.md`.
+- Para multi‑arquivo: monte **plano passo a passo** (arquivo → ação) e siga‑o. Sem buscas exploratórias desnecessárias: use os caminhos exatos.
 
-1. **PROIBIDO APAGAR OU DESTRUIR CÓDIGO FUNCIONAL:**
-   - NUNCA "simplifique", "resuma" ou remova blocos de código ou funções inteiras para resolver um bug. O debug DEVE ser feito por evidências (logs do PHP/Monolog, `error_log()`, inspeção MCP do MySQL).
-2. **PROIBIDO CÓDIGO LEGADO OU SQL SOLTO:**
-   - NUNCA use PDO cru, `$pdo->prepare()`, `DB::statement()` soltos ou SQL concatenado no código.
-   - Toda interação com o banco DEVE passar obrigatoriamente pelos Repositories tipados (`Infrastructure/Persistence/` ou `Repositories/`).
-3. **PROIBIDO QUEBRAR MÓDULOS OU ROTAS NATIVAS:**
-   - Nenhuma alteração pode quebrar autenticação, logins (`auth_sessions`), rotas do Admin Master, Lojista, Entregador ou Cliente.
+## 4. Skill sob Demanda (carregue só ao acionar)
 
----
+Cada skill tem 1 linha‑gatilho abaixo; o corpo está em `.agent/skills/<nome>.md` (ou `intelligence/skills/`). Ative só quando a tarefa couber:
+- `software-architect` — decisão de arquitetura, camadas, DI, escalabilidade.
+- `code-reviewer` — revisão, debug por evidência, anti‑retrabalho.
+- `database-dba` — schema, índices, N+1, transações, Repository.
+- `security-expert` — OWASP, sanitização, sessões `auth_sessions`.
+- `ui-ux-designer` — respeitar `DESIGN_SYSTEM.md`, reaproveitar componentes.
 
-## 🧠 3. PROTOCOLO DE LEITURA E ENRIQUECIMENTO DE MEMÓRIA
+## 5. Verificação Autônoma (loop fechado)
 
-Antes de responder ou gerar código para qualquer prompt:
-1. **LER OS ARQUIVOS DE CONTEXTO:**
-   - `docs/ai/CONTEXTO_ATUAL.md` (Arquitetura e Stack)
-   - `docs/ai/MODULOS_E_REGRAS.md` (Regras de Negócio e Mapeamento de Arquivos)
-   - `docs/ai/DESIGN_SYSTEM.md` (DNA Visual e Estilo)
-   - `docs/ai/HANDOFF_ATUAL.md` (Histórico da última sessão)
-2. **ATUALIZAR A MEMÓRIA VIVA AO FINAL DA TAREFA:**
-   - Nenhuma tarefa é considerada concluída se o agente não registrar no `docs/ai/HANDOFF_ATUAL.md` o que foi feito, os arquivos alterados e eventuais dependências deixadas para o próximo agente.
+Ao terminar, rode o comando de validação da stack e corrija erros sozinho (sem intervenção):
+- **PHP:** `find app config routes -name '*.php' -print0 | xargs -0 -n1 php -l` · `composer analyse` · `vendor/bin/phpunit`
+- **Node/AdonisJS:** `tsc --noEmit` · `npm run lint` · `npm test` · `node ace migration:run`
+Só conclua quando o comando passar e o Critério de Pronto for atendido.
 
----
+## 6. Governança de Sessão e Modelo
 
-## 🎯 4. DIRETRIZES DE SUSTENTABILIDADE E ESCALABILIDADE
-- **Arquitetura:** Single Action Controllers (Invokable Classes) + Repository Pattern + Dependency Injection via Container.
-- **Resiliência:** Sessões gravadas na tabela `auth_sessions` no MySQL (imune a deploys/restarts).
-- **Tratamento de Erro:** NENHUMA rota pode estourar Erro 500 sem tratamento. Toda exceção deve ser capturada e retornar JSON amigável ou renderizar a view tratada.
+- **1 conversa = 1 tarefa.** Ao concluir, registre em `HANDOFF_ATUAL.md` (feito, arquivos, pendências) e encerre a sessão. Não encadeie novos assuntos em chat antigo.
+- **Modelo:** use rápido/pequeno (ex: Haiku) para formatação, renomeação, resumo, edições diretas e verificáveis; use avançado (ex: Sonnet/Opus) para planejamento, arquitetura, decisões críticas e bugs difíceis.
+
+## 7. Sustentabilidade
+
+- Arquitetura: Controllers (Single Action/Invokable) + Repository Pattern + DI via Container.
+- Sessões em `auth_sessions` (MySQL) — imunes a deploy/restart.
+- Nenhuma rota estoura 500 sem tratamento; capture e retorne JSON ou renderize view tratada.

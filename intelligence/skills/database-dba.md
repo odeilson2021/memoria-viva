@@ -1,42 +1,22 @@
-# 🗄️ SKILL: ESPECIALISTA EM BANCO DE DADOS (DBA & DATA ENGINEER)
+# SKILL: database-dba
 
-> **Persona & Diretrizes:** Engenheiro Principal de Banco de Dados. Garantidor da integridade, performance sob alta volumetria, indexação cirúrgica, prevenção de SQL Injection e abstração via Repository Pattern.
+DBA — integridade, performance, indexação, Repository. Ative para schema, queries, migrations e acesso a dados.
 
----
+## Proibições
+- Nada de SQL solto/concatenado nem PDO cru fora da camada de persistência. Toda query passa por Repository tipado (`Infrastructure/Persistence/` ou `Repositories/`).
+- Nada de N+1: não execute SQL dentro de loop; use JOIN/WHERE IN/Eager Loading.
+- Multi‑tabela → transação explícita (BEGIN/COMMIT/ROLLBACK).
 
-## 🚫 1. PROIBIÇÕES ABSOLUTAS DO DBA
+## Indexação & performance
+- FK (`store_id`, `user_id`, `order_id`) com índice + declaração de FK.
+- Índice composto ordenado da menor p/ maior cardinalidade (ex: `idx_store_status_date`).
+- Tabelas >100k: evite OFFSET alto; use paginação por cursor (`WHERE id > last_id`).
+- MySQL/MariaDB: charset `utf8mb4` / collation `utf8mb4_unicode_ci`. Tabelas `snake_case` inglês plural; PK `id`.
 
-1. **PROIBIDO SQL SOLTO OU CONCATENADO NO CÓDIGO:**
-   - **NUNCA** utilize PDO cru (`$pdo->query()`, `$pdo->exec()`), `DB::statement()` cru ou SQL concatenado com variáveis fora da camada de persistência.
-   - **TODA E QUALQUER** consulta ou alteração DEVE passar obrigatoriamente por Repositórios tipados (`Infrastructure/Persistence/` ou `Repositories/`).
+## Schema
+- Colunas `created_at`, `updated_at`; soft delete via `deleted_at` quando aplicável.
+- Metadados dinâmicos por tenant → coluna JSON, não dezenas de colunas nulas.
+- Nunca altere schema em produção sem Migration versionada; migrations de produção são aditivas.
 
-2. **PROIBIDO QUERIES N+1:**
-   - Proibido executar queries SQL dentro de loops `foreach`, `while` ou `.map()`.
-   - Utilizar obrigatoriamente `JOIN`s bem indexados, `WHERE IN (...)` com batching ou *Eager Loading* do ORM.
-
-3. **PROIBIDO OPERAÇÕES MULTI-TABELA SEM TRANSAÇÃO:**
-   - Toda gravação que afete 2 ou mais tabelas DEVE estar envelopada em bloco de Transação explícito (`BEGIN`, `COMMIT`, `ROLLBACK`).
-
----
-
-## ⚡ 2. REGRAS DE INDEXAÇÃO E PERFORMANCE
-
-1. **Chaves Estrangeiras (Foreign Keys):**
-   - Toda coluna de relacionamento (`store_id`, `user_id`, `order_id`) DEVE possuir índice explícito e declaração de Foreign Key com ação de delete/update consciente.
-
-2. **Índices Compostos e Covering Indexes:**
-   - Filtros frequentes combinados (ex: `WHERE store_id = X AND status = Y AND created_at >= Z`) DEVEM ter índice composto ordenado da menor para a maior cardinalidade.
-
-3. **Paginação Eficiente:**
-   - Proibido utilizar `OFFSET` elevado em tabelas com mais de 100k registros sem indexação cobridora. Preferir paginação via Cursor (Seek method `WHERE id > last_id`).
-
-4. **Charset & Semântica:**
-   - MySQL/MariaDB: Charset obrigatório `utf8mb4` e collation `utf8mb4_unicode_ci`.
-   - Nomenclatura: Tabelas em `snake_case`, inglês, no plural (`stores`, `orders`, `users`). Colunas primárias `id`.
-
----
-
-## 🔍 3. DELEGAÇÃO E EXTENSIBILIDADE SEM ALTERAÇÃO DE SCHEMA
-
-1. **Uso de Colunas JSON / Key-Value:**
-   - Para metadados customizáveis e dinâmicos por tenant/loja, utilizar colunas nativas `JSON` auditadas em vez de criar dezenas de colunas nulas.
+## Verificação
+Valide com `EXPLAIN`/`DESCRIBE` via MCP MySQL; confirme índices usados e ausência de full scan antes de concluir.

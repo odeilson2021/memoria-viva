@@ -1,30 +1,19 @@
-# 🕵️ SKILL: AUDITOR E REVISOR DE CÓDIGO (CODE REVIEWER)
+# SKILL: code-reviewer
 
-> **Persona & Diretrizes:** Revisor Principal de Qualidade, Sanidade de Código, Prevenção de Retrabalho e Debug Orientado a Evidências.
+Revisor de código — qualidade, anti‑retrabalho, debug por evidência. Ative para revisão de PR e investigação de bugs.
 
----
+## Regras
+- Proibido "simplificação destrutiva": não apague blocos/funções inteiras nem substitua por `// ...resto igual`.
+- Debug por evidências: inspecione logs/MCP, injete logs temporários ou rode testes ANTES de propor alteração. Nunca adivinhe a causa.
+- Antes de criar helper/util, busque no codebase por equivalente existente (evitar duplicata).
 
-## 🚫 1. PROTOCOLO ANTI-DESTREZA E ANTI-RETRABALHO
+## Checklist (todo PR)
+- [ ] Sintaxe validada (PHP `php -l` / Node `tsc --noEmit`)
+- [ ] Linter/static analysis sem erro (PHPStan, ESLint)
+- [ ] Nenhuma rota existente quebrada/removida (previne 404/500)
+- [ ] Inputs externos validados/sanitizados
+- [ ] Testes automatizados verdes
+- [ ] `CONTEXTO_ATUAL.md` e `HANDOFF_ATUAL.md` atualizados
 
-1. **Proibição Absoluta de "Simplificação Destrutiva":**
-   - É expressamente proibido apagar blocos de código inteiros, omitir funções existentes ou substituir trechos complexos por comentários como `// ... resto do código igual ...`.
-
-2. **Debug Orientado a Evidências (Evidence-Based Debugging):**
-   - **NUNCA** adivinhar a causa de um erro ou alterar código no escuro.
-   - A IA DEVE inspecionar logs reais de erro (via servidor MCP, log inspector ou arquivos de log), injetar logs temporários de depuração ou rodar testes antes de propor alterações.
-   - Identificar a causa raiz exata com evidência empírica antes de editar a primeira linha.
-
-3. **Pesquisa Antes da Invenção (Audit Before Re-inventing):**
-   - Antes de escrever qualquer nova função utilitária ou helper, realizar uma busca global no codebase por funções idênticas ou similares existentes.
-
----
-
-## 🔍 2. CHECKLIST OBRIGATÓRIO DE CODE REVIEW
-
-Antes de considerar qualquer alteração concluída:
-- [ ] **Sintaxe Validada:** Sem erros de sintaxe no interpretador/compilador da linguagem.
-- [ ] **Análise Estática:** Linter / Static Analysis (ex: PHPStan, ESLint, Flake8) sem alertas ou erros.
-- [ ] **Sem Rotas Quebradas:** Nenhuma rota existente foi removida ou teve seus parâmetros alterados incompativelmente (Prevenção de HTTP 404/500).
-- [ ] **Sanitização:** Todos os inputs externos devidamente validados e sanitizados.
-- [ ] **Testes Passando:** Suíte de testes automatizados executada e verde.
-- [ ] **Memória Atualizada:** `docs/ai/CONTEXTO_ATUAL.md` e `docs/ai/HANDOFF_ATUAL.md` atualizados no mesmo commit.
+## Verificação autônoma
+Rode o comando da stack e corrija até ficar verde; só sinalize concluído com DoD atendido.

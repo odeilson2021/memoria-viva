@@ -53,9 +53,11 @@
 
 ## ✅ Checklist Pré-Deploy (Executar Antes de Todo `git push`)
 
+<!-- STACK_CHECKLIST -->
 - [ ] Sintaxe PHP validada (`php -l`)
 - [ ] `composer analyse` (PHPStan) sem erros
 - [ ] `vendor/bin/phpunit` — todos os testes passaram
+<!-- /STACK_CHECKLIST -->
 - [ ] `docs/ai/CONTEXTO_ATUAL.md` atualizado (se houve mudança de rota ou banco)
 - [ ] `docs/ai/HANDOFF_ATUAL.md` atualizado com registro da sessão
 - [ ] Commit com mensagem clara: `"[tipo]: mensagem objetiva"`

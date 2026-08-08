@@ -55,9 +55,26 @@ class ContextGenerator {
         const designResult = await this._generateDesignSystemFile();
         this._trackResult(designResult, createdFiles, updatedFiles, skippedFiles);
 
-        // 6.1 Copiar skills de IA para o projeto alvo (.agent/skills/)
+        // 6.1 Copiar skills de IA para o projeto alvo (.agent/skills/) + índice
         const skillsResult = await this._copySkills();
         this._trackResult(skillsResult, createdFiles, updatedFiles, skippedFiles);
+
+        // 6.2 Copiar Briefing e índice de Skills (contexto enxuto)
+        const briefingSrc = path.join(this.templatesDir, 'BRIEFING.md');
+        if (await fs.pathExists(briefingSrc)) {
+            const r = await this._copyTemplateIfMissing('BRIEFING.md', '.agent/BRIEFING.md');
+            this._trackResult(r, createdFiles, updatedFiles, skippedFiles);
+        }
+        const skillsIdxSrc = path.join(this.globalRoot, 'intelligence', 'skills', 'SKILLS.md');
+        if (await fs.pathExists(skillsIdxSrc)) {
+            const dstSkills = path.join(this.dna.root, '.agent', 'SKILLS.md');
+            if (!await fs.pathExists(dstSkills)) {
+                if (!this.options.dryRun) await fs.copy(skillsIdxSrc, dstSkills);
+                this._trackResult({ status: 'created', file: '.agent/SKILLS.md' }, createdFiles, updatedFiles, skippedFiles);
+            } else {
+                this._trackResult({ status: 'skipped', file: '.agent/SKILLS.md' }, createdFiles, updatedFiles, skippedFiles);
+            }
+        }
 
         // 7. Processar .github/workflows/deploy.yml (Workflow CI/CD)
         const deployResult = await this._copyTemplateIfMissing(this._deployTemplate(), '.github/workflows/deploy.yml');
@@ -100,8 +117,12 @@ class ContextGenerator {
 - **Abstração de Banco:** Utilizar Repositórios ou ORM (\`${this.dna.orm}\`). Proibido SQL concatenado.`;
         }
 
-        const projectHeader = `<!-- DNA DO PROJETO DETECTADO: ${this.dna.language} | Framework: ${this.dna.framework} | Banco: ${this.dna.database} | ORM: ${this.dna.orm} | UI: ${this.dna.uiFramework} -->\n\n`;
-        content = projectHeader + content;
+        content = content
+            .replace(/\{\{LANG\}\}/g, this.dna.language)
+            .replace(/\{\{FRAMEWORK\}\}/g, this.dna.framework)
+            .replace(/\{\{DB\}\}/g, this.dna.database)
+            .replace(/\{\{ORM\}\}/g, this.dna.orm)
+            .replace(/\{\{UI\}\}/g, this.dna.uiFramework);
 
         if (stackRules) {
             content += `\n---\n\n## 🧩 ARQUITETURA DA STACK DETECTADA (${this.dna.framework})\n${stackRules}\n`;
@@ -172,6 +193,7 @@ class ContextGenerator {
 
         const now = new Date().toISOString().split('T')[0];
         content = content.replace(/\*\(data\)\*/g, now);
+        content = this._applyHandoffChecklist(content);
 
         if (!this.options.dryRun) {
             await fs.writeFile(dstPath, content, 'utf8');
@@ -256,6 +278,8 @@ class ContextGenerator {
 
     async _syncContext() {
         const routes = this.dna.routes || [];
+        const tables = this.dna.tables || [];
+
         const rotasPath = path.join(this.dna.root, 'docs', 'ai', 'ROTAS_DETECTADAS.md');
         if (!this.options.dryRun) {
             await fs.ensureDir(path.dirname(rotasPath));
@@ -265,6 +289,8 @@ class ContextGenerator {
         const ctxPath = path.join(this.dna.root, 'docs', 'ai', 'CONTEXTO_ATUAL.md');
         if (await fs.pathExists(ctxPath)) {
             let ctx = await fs.readFile(ctxPath, 'utf8');
+            let changed = false;
+
             if (ctx.includes('*(preencher)*')) {
                 const table = this._buildRotasTable(routes);
                 if (table) {
@@ -273,14 +299,41 @@ class ContextGenerator {
                     if (idx >= 0) {
                         lines.splice(idx, 1, ...table.trimEnd().split('\n'));
                         ctx = lines.join('\n');
-                    }
-                    if (!this.options.dryRun) {
-                        await fs.writeFile(ctxPath, ctx, 'utf8');
+                        changed = true;
                     }
                 }
             }
+
+            const newCtx = this._fillContextTables(ctx);
+            if (newCtx !== ctx) {
+                ctx = newCtx;
+                changed = true;
+            }
+
+            if (changed && !this.options.dryRun) {
+                await fs.writeFile(ctxPath, ctx, 'utf8');
+            }
         }
-        return { status: 'updated', file: 'docs/ai/CONTEXTO_ATUAL.md' };
+
+        const modPath = path.join(this.dna.root, 'docs', 'ai', 'MODULOS_E_REGRAS.md');
+        if (await fs.pathExists(modPath)) {
+            const mod = await fs.readFile(modPath, 'utf8');
+            const newMod = this._fillDetectedModules(mod);
+            if (newMod !== mod && !this.options.dryRun) {
+                await fs.writeFile(modPath, newMod, 'utf8');
+            }
+        }
+
+        const handoffPath = path.join(this.dna.root, 'docs', 'ai', 'HANDOFF_ATUAL.md');
+        if (await fs.pathExists(handoffPath)) {
+            const ho = await fs.readFile(handoffPath, 'utf8');
+            const newHo = this._applyHandoffChecklist(ho);
+            if (newHo !== ho && !this.options.dryRun) {
+                await fs.writeFile(handoffPath, newHo, 'utf8');
+            }
+        }
+
+        return { status: 'updated', file: 'docs/ai/' };
     }
 
     _buildRotasTable(routes) {
@@ -304,6 +357,83 @@ class ContextGenerator {
         }
         const rows = routes.map(r => `| ${r.method} | ${r.path} | ${r.module} | ${r.file} |`).join('\n');
         return header + rows + '\n';
+    }
+
+    _fillContextTables(ctx) {
+        const tables = this.dna.tables || [];
+        if (!ctx.includes('*(use list_tables via MCP para preencher)*')) return ctx;
+        const rows = this._buildTablesTable(tables);
+        if (!rows) return ctx;
+        const lines = ctx.split('\n');
+        const idx = lines.findIndex(l => l.includes('*(use list_tables via MCP para preencher)*'));
+        if (idx >= 0) {
+            lines.splice(idx, 1, ...rows.trimEnd().split('\n'));
+            ctx = lines.join('\n');
+        }
+        return ctx;
+    }
+
+    _buildTablesTable(tables) {
+        if (!tables.length) return '';
+        return tables.map(t => `| ${t} | — | — |`).join('\n') + '\n';
+    }
+
+    _fillDetectedModules(content) {
+        const block = this._buildDetectedModules(this.dna.routes || []);
+        const start = '<!-- MODULOS_DETECTADOS -->';
+        const end = '<!-- /MODULOS_DETECTADOS -->';
+        if (content.includes(start) && content.includes(end)) {
+            const re = new RegExp(start + '[\\s\\S]*?' + end);
+            return content.replace(re, `${start}\n${block}${end}`);
+        }
+        return content;
+    }
+
+    _buildDetectedModules(routes) {
+        if (!routes.length) return '_Nenhum módulo detectado automaticamente._\n';
+        const groups = {};
+        for (const r of routes) {
+            (groups[r.module] = groups[r.module] || []).push(r);
+        }
+        let md = '';
+        for (const [mod, rs] of Object.entries(groups)) {
+            md += `### Módulo: ${mod}\n`;
+            md += `- **Rotas:** ${rs.map(r => `${r.method} ${r.path}`).join(', ')}\n`;
+            md += `- **Arquivos:** ${[...new Set(rs.map(r => r.file))].join(', ')}\n\n`;
+        }
+        return md;
+    }
+
+    _applyHandoffChecklist(content) {
+        const checklist = this._getChecklist();
+        return content.replace(
+            /<!-- STACK_CHECKLIST -->[\s\S]*?<!-- \/STACK_CHECKLIST -->/,
+            `<!-- STACK_CHECKLIST -->\n${checklist}\n<!-- /STACK_CHECKLIST -->`
+        );
+    }
+
+    _getChecklist() {
+        const f = this.dna.framework || '';
+        if (f.includes('AdonisJS') || f.includes('Node')) {
+            return [
+                '- [ ] Sintaxe/type-check validado (`tsc --noEmit` ou `node --check`)',
+                '- [ ] Lint sem erros (`npm run lint`)',
+                '- [ ] Testes automatizados (`npm test`) passaram',
+                '- [ ] Migrations aplicadas (`node ace migration:run`)'
+            ].join('\n');
+        }
+        if (f.includes('PHP')) {
+            return [
+                '- [ ] Sintaxe PHP validada (`php -l`)',
+                '- [ ] Análise estática (`composer analyse` / PHPStan) sem erros',
+                '- [ ] Testes automatizados (`vendor/bin/phpunit`) passaram'
+            ].join('\n');
+        }
+        return [
+            '- [ ] Sintaxe validada',
+            '- [ ] Análise estática sem erros',
+            '- [ ] Testes automatizados passaram'
+        ].join('\n');
     }
 
     _getStackTooling() {

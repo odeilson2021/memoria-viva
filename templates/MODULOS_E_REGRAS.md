@@ -65,6 +65,9 @@
 
 ---
 
+<!-- MODULOS_DETECTADOS -->
+<!-- /MODULOS_DETECTADOS -->
+
 ## 🔑 Regras Transversais (Valem para Todos os Módulos)
 
 1. **Autenticação:** Sessões persistidas na tabela `auth_sessions` com validade por módulo.
