@@ -410,3 +410,55 @@ test('grafo liga rota/arquivo à tabela quando o nome aparece no código', async
     assert.match(graphMarkdown, /acessa tabela/);
 });
 
+test('gera INDICE e MAPA_DO_PROJETO com wiki-links estilo Obsidian', async t => {
+    const root = await tmpProject(t, 'map');
+    await scaffold(root, {
+        'package.json': { name: 'api', dependencies: { express: '^5', pg: '^8' } },
+        'src/routes/orders.js': "router.get('/orders', h); const q='SELECT * FROM orders';",
+        'db/migrations/001.sql': 'CREATE TABLE orders (id bigint);',
+        'src/services/orders.js': 'module.exports = 1;'
+    });
+    const dna = await new ProjectAnalyzer(root).analyze();
+    const generator = new ContextGenerator(dna);
+    await generator.generate();
+    await generator.syncContext();
+
+    const index = await fs.readFile(path.join(root, 'docs/ai/INDICE.md'), 'utf8');
+    const map = await fs.readFile(path.join(root, 'docs/ai/MAPA_DO_PROJETO.md'), 'utf8');
+    const context = await fs.readFile(path.join(root, 'docs/ai/CONTEXTO_ATUAL.md'), 'utf8');
+
+    for (const doc of [index, map, context]) {
+        assert.match(doc, /\[\[GRAFO\]\]/, 'deve cruzar com [[GRAFO]]');
+        assert.match(doc, /Documentos relacionados \(padrão Obsidian\)/, 'deve ter bloco de relacionados');
+    }
+    assert.match(map, /Estrutura de diretórios/, 'mapa tem árvore de diretórios');
+    assert.match(map, /Sistema de roteamento/, 'mapa tem roteamento');
+    assert.match(map, /src\/services\/orders\.js|services/, 'mapa mapeia pastas do projeto');
+    assert.match(map, /docs\/ai\/MAPA_DO_PROJETO\.md/, 'mapa lista caminho canônico da doc');
+
+    const health = await MemoryState.inspect(root, dna);
+    assert.equal(health.healthy, true, health.issues.join('\n'));
+});
+
+test('mapa e indice sao idempotentes', async t => {
+    const root = await tmpProject(t, 'map-idem');
+    await scaffold(root, {
+        'package.json': { name: 'api', dependencies: { express: '^5' } },
+        'src/routes/orders.js': "router.get('/orders', h);"
+    });
+    const dna = await new ProjectAnalyzer(root).analyze();
+    const generator = new ContextGenerator(dna);
+    await generator.generate();
+    await generator.syncContext();
+
+    const firstMap = await fs.readFile(path.join(root, 'docs/ai/MAPA_DO_PROJETO.md'), 'utf8');
+    const firstIndex = await fs.readFile(path.join(root, 'docs/ai/INDICE.md'), 'utf8');
+
+    const refreshed = await new ProjectAnalyzer(root).analyze();
+    const regen = new ContextGenerator(refreshed);
+    await regen.generate();
+    await regen.syncContext();
+    assert.equal(await fs.readFile(path.join(root, 'docs/ai/MAPA_DO_PROJETO.md'), 'utf8'), firstMap);
+    assert.equal(await fs.readFile(path.join(root, 'docs/ai/INDICE.md'), 'utf8'), firstIndex);
+});
+

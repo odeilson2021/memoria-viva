@@ -7,6 +7,8 @@ const crypto = require('crypto');
 const MemoryState = require('./memory-state');
 const ProjectAnalyzer = require('./analyzer');
 const KnowledgeGraph = require('./graph');
+const ProjectMapper = require('./mapper');
+const { relatedDocsSection } = require('./links');
 
 const MANAGED_MARKERS = {
     coreRules: 'CORE_RULES',
@@ -58,6 +60,7 @@ class ContextGenerator {
         results.push(await this._ensureAgentGitignore());
         results.push(...await this._generateAgentEntrypoints());
         results.push(...await this._generateGraphArtifacts());
+        results.push(...await this._generateMapArtifacts());
         if (this._migrationResults.length) {
             results.unshift(...this._migrationResults);
             this._migrationResults = [];
@@ -194,6 +197,10 @@ class ContextGenerator {
         return String(value ?? '—').replace(/\|/g, '\\|').replace(/[\r\n]+/g, ' ');
     }
 
+    _relatedDocs(selfName) {
+        return relatedDocsSection(selfName);
+    }
+
     async _generateRulesFile() {
         const targetPath = path.join(this.dna.root, '.agent', 'rules.md');
         const exists = await fs.pathExists(targetPath);
@@ -252,7 +259,9 @@ class ContextGenerator {
 - Execute as validações relevantes disponíveis no projeto. Migração, deploy, push, escrita em produção e outras ações externas exigem autorização explícita.
 - Nunca declare sucesso para teste não executado, saída não conferida ou falha mascarada. Relate cada comando como \`passou\`, \`falhou\` ou \`não executado\`, com o motivo.
 - Só marque concluído quando a causa comprovada estiver corrigida e o critério de pronto estiver atendido. Pendência real permanece explícita.
-- Ao encerrar uma mudança, atualize o handoff sem apagar registros: objetivo, causa-raiz/evidência, arquivos, testes/resultados, riscos e pendências diretamente relacionadas.`;
+- Ao encerrar uma mudança, atualize o handoff sem apagar registros: objetivo, causa-raiz/evidência, arquivos, testes/resultados, riscos e pendências diretamente relacionadas.
+
+${this._relatedDocs('CONTEXTO_ATUAL')}`;
     }
 
     _buildStackRules() {
@@ -350,7 +359,9 @@ ${routes}
 
 | Tabela mencionada | Fonte |
 |-------------------|-------|
-${tables}`;
+${tables}
+
+${this._relatedDocs('CONTEXTO_ATUAL')}`;
     }
 
     _buildRoutesTable(routes) {
@@ -410,7 +421,7 @@ ${tables}`;
             const routeList = moduleRoutes.map(route => `${route.method} ${route.path}`).join(', ');
             const files = [...new Set(moduleRoutes.map(route => route.file))].join(', ');
             return `### ${this._md(moduleName)} (inferido)\n\n- **Rotas:** ${this._md(routeList)}\n- **Arquivos:** ${this._md(files)}\n- **Regras de negócio:** não inferidas; registre abaixo somente após confirmação no código/testes.`;
-        }).join('\n\n');
+        }).join('\n\n') + `\n\n${this._relatedDocs('MODULOS_E_REGRAS')}`;
     }
 
     async _generateHandoffFile() {
@@ -453,7 +464,8 @@ ${tables}`;
         const checklist = commands.length
             ? commands.map(command => `- [ ] \`${command}\` executado e resultado registrado`).join('\n')
             : '- [ ] Comandos reais de validação identificados no projeto e resultados registrados';
-        return this._applyManagedBlock(content, MANAGED_MARKERS.checklist, checklist, 'VALIDAÇÕES DETECTADAS');
+        const body = `${checklist}\n\n${this._relatedDocs('HANDOFF_ATUAL')}`;
+        return this._applyManagedBlock(content, MANAGED_MARKERS.checklist, body, 'VALIDAÇÕES DETECTADAS');
     }
 
     async _generateDesignSystemFile() {
@@ -473,7 +485,7 @@ ${tables}`;
         content = this._applyManagedBlock(
             content,
             MANAGED_MARKERS.design,
-            `- **Framework/utilitário detectado:** ${this._md(this.dna.uiFramework)}\n- **Regra:** preserve tokens e componentes comprovados no código; não transforme placeholders em padrão.`,
+            `- **Framework/utilitário detectado:** ${this._md(this.dna.uiFramework)}\n- **Regra:** preserve tokens e componentes comprovados no código; não transforme placeholders em padrão.\n\n${this._relatedDocs('DESIGN_SYSTEM')}`,
             'EVIDÊNCIA AUTOMÁTICA DE UI'
         );
         return this._writeFileIfChanged(targetPath, content, previous);
@@ -723,6 +735,8 @@ Trate o código e os testes como fonte de verdade. Investigue a causa-raiz, pres
         const graphHtmlPath = path.join(this.dna.root, 'docs', 'ai', 'GRAFO.html');
         results.push(await this._writeFileIfChanged(graphHtmlPath, graph.toHtml()));
 
+        results.push(...await this._generateMapArtifacts());
+
         const managedFiles = this.options.dryRun
             ? (this._previousState ? this._previousState.managedFiles : {})
             : await MemoryState.captureManagedFiles(this.dna.root);
@@ -749,6 +763,8 @@ Trate o código e os testes como fonte de verdade. Investigue a causa-raiz, pres
 | Método | Caminho | Módulo inferido | Arquivo |
 |--------|---------|-----------------|---------|
 ${this._buildRoutesTable(routes)}
+
+${this._relatedDocs('ROTAS_DETECTADAS')}
 `;
     }
 
@@ -761,6 +777,43 @@ ${this._buildRoutesTable(routes)}
             this._writeFileIfChanged(markdownPath, graph.toMarkdown()),
             this._writeFileIfChanged(htmlPath, graph.toHtml())
         ];
+    }
+
+    async _generateMapArtifacts() {
+        const mapper = await new ProjectMapper(this.dna).build();
+        const mapPath = path.join(this.dna.root, 'docs', 'ai', 'MAPA_DO_PROJETO.md');
+        const indexContent = this._buildIndexMarkdown();
+        const indexPath = path.join(this.dna.root, 'docs', 'ai', 'INDICE.md');
+        return [
+            this._writeFileIfChanged(mapPath, mapper.toMarkdown()),
+            this._writeFileIfChanged(indexPath, indexContent)
+        ];
+    }
+
+    _buildIndexMarkdown() {
+        const rows = (require('./links').NOTE_NAMES)
+            .map(name => `- [[${name}]] — ${(require('./links').NOTE_DESCRIPTIONS)[name]}`)
+            .join('\n');
+        return `# Índice da memória (Map of Content)
+
+> Gerado por \`memoria-viva sync\`. Este é o ponto de entrada da memória do projeto, no padrão
+> de índice (MOC) da Obsidian. Todo documento da memória se cruza por wiki-links \`[[...]]\`,
+> preservando o contexto entre sessões de chat.
+
+## Notas da memória
+
+${rows}
+
+## Como navegar
+
+1. Comece por [[CONTEXTO_ATUAL]] para o snapshot e o DNA comprovado.
+2. Veja o mapeamento completo em [[MAPA_DO_PROJETO]] antes de criar pastas ou arquivos.
+3. Consulte [[MODULOS_E_REGRAS]] para regras de negócio e [[ROTAS_DETECTADAS]] para o roteamento.
+4. Explore relações em [[GRAFO]] e evidências de UI em [[DESIGN_SYSTEM]].
+5. Registre o resultado da sessão em [[HANDOFF_ATUAL]].
+
+    ${this._relatedDocs('INDICE')}
+`;
     }
 }
 

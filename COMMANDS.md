@@ -12,8 +12,8 @@ memoria-viva graph [--root <path>] [--silent]
 memoria-viva update [--root <path>] [--dry-run] [--silent]
 ```
 
-- `init`: cria arquivos ausentes e grava o primeiro snapshot.
-- `sync`/`update`: atualiza blocos gerenciados, referências normativas do pacote e o estado canônico; conteúdo humano fora dos blocos é preservado.
+- `init`: cria arquivos ausentes, mapeia o projeto e grava o primeiro snapshot.
+- `sync`/`update`: atualiza blocos gerenciados, referências normativas do pacote, o mapa do projeto, o grafo e o estado canônico; conteúdo humano fora dos blocos é preservado.
 - `check`/`status`: valida conteúdo, marcadores, schema e fingerprint. Retorna `1` quando inválido/desatualizado.
 - `context`: recupera o resumo; `--json` retorna `.agent/memory.json` validado.
 - `graph`: imprime o grafo de conhecimento (nós, conexões e backlinks) em Mermaid.

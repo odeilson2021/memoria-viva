@@ -85,7 +85,9 @@ projeto/
     ├── GRAFO.html
     ├── MODULOS_E_REGRAS.md
     ├── HANDOFF_ATUAL.md
-    └── DESIGN_SYSTEM.md
+    ├── DESIGN_SYSTEM.md
+    ├── MAPA_DO_PROJETO.md
+    └── INDICE.md
 ```
 
 `AGENTS.md`, `CLAUDE.md`, a regra do Cursor e as instruções do Copilot são bootstraps: apontam o agente para o snapshot e o protocolo profissional. Se já existirem, somente o bloco delimitado `MEMORIA_VIVA:BOOTSTRAP` é inserido/atualizado; o restante é preservado.
@@ -156,6 +158,22 @@ Inspirado no grafo da Obsidian, o `memoria-viva` deriva um grafo de conhecimento
 - `memoria-viva sync` gera `docs/ai/GRAFO.md` (grafo Mermaid, nós com grau de conexão, conexões e **backlinks por nó**) e `docs/ai/GRAFO.html` (viewer interativo autocontido, estilo Obsidian, com física de grafo e painel de backlinks ao clicar num nó).
 - `memoria-viva graph` imprime o grafo Mermaid diretamente no terminal.
 - O estado canônico em `.agent/memory.json` inclui `knowledgeGraph` (nós e arestas), exposto por `memoria-viva context --json`.
+
+## Padrão de referência entre documentos (wiki-links estilo Obsidian)
+
+Para que o "cérebro" da memória permaneça vivo entre sessões de chat, todos os documentos da memória se cruzam por **wiki-links** no padrão da Obsidian (`[[NOME]]`). Cada nota aponta para as notas relacionadas (bloco "Documentos relacionados") e o `INDICE.md` funciona como o *Map of Content* central. Assim o agente preserva contexto, não perde referências e sabe onde está o mapeamento de cada arquivo.
+
+## Mapeamento completo do projeto
+
+`docs/ai/MAPA_DO_PROJETO.md` é gerado no `init`/`sync` e traz:
+
+- **Estrutura de diretórios** completa (árvore, ignorando dependências/cache).
+- **Sistema de roteamento** agrupado por módulo, com método, caminho e arquivo.
+- **Arquivos por extensão** (inventário).
+- **Caminhos de documentação** (tabela área → nota `[[...]]` → caminho canônico).
+- **Orientações para agentes**: não criar arquivos duplicados, consultar `[[ROTAS_DETECTADAS]]`/`[[MODULOS_E_REGRAS]]` antes de criar rotas, e respeitar `[[CONTEXTO_ATUAL]]`/`[[HANDOFF_ATUAL]]`.
+
+O objetivo é dar ao agente o caminho sempre atualizado de cada área, evitando arquivos duplicados em diretórios errados e o esquecimento das orientações de cada arquivo.
 
 O grafo é conservador: relações dinâmicas de runtime podem não aparecer, e decisões de negócio seguem exigindo confirmação humana/agente.
 

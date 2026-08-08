@@ -1,5 +1,7 @@
 'use strict';
 
+const { relatedDocsSection, NOTE_DESCRIPTIONS, NOTE_NAMES } = require('./links');
+
 /**
  * Constrói o grafo de conhecimento do projeto a partir do DNA detectado.
  *
@@ -268,6 +270,8 @@ ${this._edgesTable()}
 ## Backlinks por nó
 
 ${this._backlinksSection()}
+
+${relatedDocsSection('GRAFO')}
 `;
     }
 
@@ -444,6 +448,10 @@ if (!nodes.length) {
   window.addEventListener('resize', render);
 }
 </script>
+<footer style="padding:12px 16px;color:#94a3b8;font-size:12px;border-top:1px solid #1f2937;">
+  <strong>Documentos relacionados (padrão Obsidian):</strong>
+  ${NOTE_NAMES.filter(n => n !== 'GRAFO').map(n => `<a style="color:#60a5fa" href="${n}.md">${n}</a> — ${NOTE_DESCRIPTIONS[n]}`).join(' · ')}
+</footer>
 </body>
 </html>
 `;

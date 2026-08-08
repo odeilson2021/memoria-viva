@@ -34,7 +34,9 @@ const REQUIRED_FILES = [
     'docs/ai/HANDOFF_ATUAL.md',
     'docs/ai/ROTAS_DETECTADAS.md',
     'docs/ai/GRAFO.md',
-    'docs/ai/GRAFO.html'
+    'docs/ai/GRAFO.html',
+    'docs/ai/MAPA_DO_PROJETO.md',
+    'docs/ai/INDICE.md'
 ];
 
 // Human text outside these marker blocks is intentionally excluded from the
@@ -59,7 +61,9 @@ const MANAGED_ARTIFACTS = {
     'docs/ai/HANDOFF_ATUAL.md': { markers: ['STACK_CHECKLIST'] },
     'docs/ai/ROTAS_DETECTADAS.md': { full: true },
     'docs/ai/GRAFO.md': { full: true },
-    'docs/ai/GRAFO.html': { full: true }
+    'docs/ai/GRAFO.html': { full: true },
+    'docs/ai/MAPA_DO_PROJETO.md': { full: true },
+    'docs/ai/INDICE.md': { full: true }
 };
 const MANAGED_FILES = Object.keys(MANAGED_ARTIFACTS);
 
